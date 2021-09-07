@@ -1,0 +1,11 @@
+*
+!*/
+!*.md
+!.gitignore
+!LICENSE
+
+!*.v
+!*.xdc
+
+!*.pdf
+!*.tex
