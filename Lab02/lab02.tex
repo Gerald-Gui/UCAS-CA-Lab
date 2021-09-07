@@ -1,0 +1,389 @@
+\documentclass[UTF-8,twoside,c5size]{ctexart}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{geometry}
+\usepackage{listings}
+\usepackage{setspace}
+\usepackage{xeCJK}
+\usepackage{ulem}
+\usepackage{pstricks}
+\usepackage{pstricks-add}
+\usepackage{bm}
+\usepackage{mathtools}
+\usepackage{breqn}
+\usepackage{mathrsfs}
+\usepackage{esint}
+\usepackage{textcomp}
+\usepackage{upgreek}
+\usepackage{pifont}
+\usepackage{tikz}
+\usepackage{circuitikz}
+\usepackage{caption}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{pgfplots}
+\usepackage{multirow}
+\usepackage{pgfplotstable}
+\usepackage{mhchem}
+
+\newcolumntype{Y}{>{\centering\arraybackslash}X}
+\geometry{a4paper,centering,top=1.27cm,bottom=2.54cm,left=2cm,right=2cm}
+\graphicspath{{figures/}}
+\pagestyle{plain}
+\captionsetup{font=small}
+
+%\CTEXsetup[name={,.}]{section}
+\CTEXsetup[format={\raggedright\bfseries\noindent\zihao{-3}}]{section}
+\CTEXsetup[format={\raggedright\bfseries\zihao{4}}]{subsection}
+\CTEXsetup[format={\raggedright\bfseries\quad\zihao{-4}}]{subsubsection}
+\CTEXsetup[format={\raggedright\bfseries\qquad}]{paragraph}
+\CTEXsetup[beforeskip=1.0ex plus 0.2ex minus .2ex, afterskip=1.0ex plus 0.2ex minus .2ex]{paragraph}
+\renewcommand\thefootnote{\ding{\numexpr171+\value{footnote}}}
+
+\setstretch{1.5}
+
+\setCJKfamilyfont{boldsong}[AutoFakeBold = {2.17}]{SimSun}
+\newcommand*{\boldsong}{\CJKfamily{boldsong}}
+%\DeclareMathOperator\dif{d\!}
+\newcommand*{\me}{\mathop{}\!\mathrm{e}}
+\newcommand*{\mpar}{\mathop{}\!\partial}
+\newcommand*{\dif}{\mathop{}\!\mathrm{d}}
+\newcommand*{\tab}{\indent}
+\newcommand*{\mcelsius}{\mathop{}\!{^\circ}\mathrm{C}}
+\renewcommand*{\Im}{\mathrm{Im}\,}
+
+\setcounter{secnumdepth}{4}
+
+\renewcommand\arraystretch{1.5}
+
+\lstset{
+	backgroundcolor=\color[RGB]{245,245,245},
+	keywordstyle=\color{blue}\bfseries,
+	basicstyle=\small\ttfamily,
+	commentstyle=\itshape\color{olive},
+	numberstyle=\ttfamily,
+	tabsize=4,
+	breaklines=true
+}
+
+\begin{document}
+	\begin{center}
+		\bfseries\zihao{-2}
+		实验2报告
+	\end{center}
+
+	\begin{table*}[!h]
+		\raggedleft
+		\zihao{-4}
+		\begin{tabular}{cc}
+			\textbf{学号} & {2019K8009929019} \\
+			\textbf{姓名} & 桂庭辉 \\
+			\textbf{箱子号} & 44
+		\end{tabular}
+	\end{table*}
+	
+	\section{实验任务}
+	根据讲义内容完成三个实践任务，通过实践认识掌握寄存器堆、同步RAM、异步RAM的读写行为与时序特征，进一步熟悉Vivado的使用与从设计到上板完整的FPGA开发流程，在实践中认识开发过程中的各种bug与解决方式。前两任务通过对波形图买哦书读写行为检验，后一任务可通过检查代码或上板行为进行检验。
+	
+	\section{实验过程}
+	
+	\subsection{实验流水账}
+	2021.09.05 20:30 $ \sim $ 2021.09.05 21:15 ：完成实践任务一与实验报告相关部分撰写
+	
+	2021.09.05 21:40 $ \sim $ 2021.09.05 23:30 ：完成实践任务二与实验报告相关部分撰写
+	
+	2021.09.06 18:45 $ \sim $ 2021.09.06 22:30 ：完成实践任务三与实验报告整体撰写排版
+	
+	\subsection{寄存器堆仿真}
+	寄存器堆的读写时序特征可概括为\textit{同步写、异步读}，此外还包括对零号寄存器特殊读写要求的处理，以下将对这三个部分分别进行说明。	
+	
+	\subsubsection{零号寄存器}
+	零号寄存器的特征在于无论其中存储内容为何，在对其进行读操作时的结果始终为0，即从用户层面看来零号寄存器中的值始终为0。
+	\begin{figure}[!h]
+		\centering
+		\includegraphics*[scale=0.5]{02-rf-00.jpg}
+		\caption{寄存器堆零号寄存器与其读取结果}
+	\end{figure}
+	
+	\subsubsection{同步写}
+	从以下的源码片段不难看出，向寄存器堆写入数据即修改寄存器堆内容始终发生在时钟信号\texttt{clk}的上升沿处，即同步时序过程。
+	\begin{lstlisting}[language=verilog]
+	// WRITE
+	always @(posedge clk) begin
+		if (we) rf[waddr]<= wdata;
+	end
+	\end{lstlisting}
+
+	\begin{figure}[!h]
+		\centering
+		\includegraphics*[scale=0.5]{02-rf-01.jpg}
+		\caption{寄存器堆部分仿真波形}
+	\end{figure}
+
+	根据图2\footnote{其中地址信号修改为十进制形式，其他信号数据进制为默认。}，Marker标记处写使能信号\texttt{we}拉高，\texttt{waddr}、\texttt{wdata}发生改变，但寄存器堆内容\texttt{rf}并未立刻发生改变，而是在此后的第一个时钟信号上升沿发生改变（见\texttt{[16]-[19]}信号的变化），即写数据写入寄存器堆，符合同步时序过程的特征。
+
+	\subsubsection{异步读}
+	从源码可以看出读端口逻辑为组合逻辑，即不依赖\texttt{clk}信号，为异步过程。
+	
+	\begin{lstlisting}[language=Verilog]
+	// READ OUT 1
+	assign rdata1 = (raddr1==5'b0) ? 32'b0 : rf[raddr1];
+	// READ OUT 2
+	assign rdata2 = (raddr2==5'b0) ? 32'b0 : rf[raddr2];
+	\end{lstlisting}
+
+	同样观察图2，读地址信号\texttt{raddr1}与\texttt{raddr2}在Marker处改变，读数据信号随之发生改变而不会等待至时钟上升沿。此外在时钟上升沿处，若写过程导致读端口对应的某寄存器内容改变则读数据信号也随之立刻改变\footnote{其间存在由组合逻辑产生的延迟。}。
+		
+	\subsection{同步 RAM 和异步 RAM 仿真、综合与实现}
+	\subsubsection{仿真行为对比分析}
+	通过行为仿真可以观察到“同步RAM”、“异步RAM”中的“同步”、“异步”是对读过程的描述，即Block RAM（以下简称BRAM）同步读数据，而Distributed RAM（以下简称DRAM）异步读数据。
+	
+	\begin{figure}[!h]
+		\centering
+		\includegraphics*[scale=0.7]{02-bram-rd.jpg}
+		\caption{BRAM读过程波形}
+		\label{bram-rd}
+	\end{figure}
+
+	\begin{figure}[!h]
+		\centering
+		\includegraphics*[scale=0.7]{02-dram-rd.jpg}
+		\caption{DRAM读过程波形}
+		\label{dram-rd}
+	\end{figure}
+
+	由图\ref{bram-rd}、\ref{dram-rd} 可见，BRAM读数据在每个时钟周期上升沿到来后改变而非如DRAM那样随读地址的改变而改变，即读取过程中BRAM与时钟信号同步进行数据读取，读得结果相比访问地址改变延后了一个周期，而DRAM读取结果随访问地址异步变化，在访问地址变化的当拍获得读取数据。
+	
+	在明确二者读过程时序特征后考察图\ref{bram-wr}、\ref{dram-wr} 中二者写过程的波形变化。可以注意到由于同步读的特征，BRAM在某一时间的写入信息需要在下一拍才能反映在读数据端口上。而对于DRAM，在明确其异步读的基础上可以其写入时序为同步写，即在时钟上升沿到来（且\texttt{wen}使能为写使能）时，写数据写入RAM，通过异步读端口反映在读数据端口上。
+	
+	\begin{figure}[!h]
+		\centering
+		\includegraphics*[scale=0.68]{02-bram-wr.jpg}
+		\caption{BRAM写过程波形}
+		\label{bram-wr}
+	\end{figure}
+
+	\begin{figure}[!h]
+		\centering
+		\includegraphics*[scale=0.68]{02-dram-wr.jpg}
+		\caption{DRAM写过程波形}
+		\label{dram-wr}
+	\end{figure}
+
+	\subsubsection{时序、资源占用对比分析}
+	
+	在时序上，BRAM的WNS为正值，时序满足极好，没有发生时序违约；而DRAM的WNS来到了$ -6.672\,\text{ns} $，违约值超过$ 300\,\text{ps} $，根据课程讲义内容时序很糟糕，可能上板无法运行，Vivado工具也给出了有关时序的Critical Warning。
+	
+	在资源上，BRAM主要使用FPGA内部集成的RAM资源，而DRAM在LUT资源上开销远多于BRAM，即其主要使用LUT资源搭建逻辑电路。
+	
+	由于块RAM一旦使用了一部分，其他部分不再能被其他模块利用，故而一般来说在构建较大的存储或时序要求较高时应用BRAM，在小RAM与时序要求不高时使用DRAM。
+	
+	\begin{figure}[!h]
+		\centering
+		\includegraphics*[scale=0.65]{02-bram-prjsmry.jpg}
+		\caption{BRAM实现报告总结}
+		\label{bram-prjsmry}
+	\end{figure}
+
+	\begin{figure}[!h]
+		\centering
+		\includegraphics*[scale=0.65]{02-dram-prjsmry.jpg}
+		\caption{DRAM实现报告总结}
+		\label{dram-prjsmry}
+	\end{figure}
+
+	\subsubsection{总结}
+	综合考虑前两小节，在实际应用过程中需要综合考虑读写时序行为与资源利用在二者之间合理取舍，同时在相关模块的设计上协同调整。
+	
+	\subsection{数字逻辑电路的设计与调试}
+	\subsubsection{错误1：信号为“Z”}
+	\paragraph{错误现象}\hfill
+	
+	如下图所示，模块\texttt{show\_sw}中信号\texttt{num\_csn}始终为Z，而子模块\texttt{show\_num}中信号\texttt{num\_csn}信号正常。
+	\begin{figure}[!h]
+		\centering
+		\includegraphics*[scale=0.65]{02-dbg-bug1.jpg}
+		\caption{\texttt{num\_csn}信号为Z}
+	\end{figure}
+	
+	\paragraph{分析定位过程}\hfill
+	
+	根据讲义内容，可能是wire类型变量未被赋值或模块调用的信号未连接导致信号悬空，进而产生仿真波形中信号为Z。考察与信号\texttt{num\_csn}有关的逻辑，可注意到如下代码：
+	\begin{lstlisting}[language=verilog]
+	//show number: new value
+	show_num u_show_num(
+		.clk        (clk      ),
+		.resetn     (resetn   ),
+	
+		.show_data  (show_data),
+		.num_csn    (num_scn  ),
+		.num_a_g    (num_a_g  )
+	);
+	\end{lstlisting}
+	其中\texttt{num\_scn}为未声明信号，取代了本该在此处的\texttt{num\_csn}导致该信号悬空。
+	\paragraph{错误原因}\hfill
+	
+	拼写错误导致模块调用间连接出错，\texttt{num\_csn}信号悬空。
+	\paragraph{修正效果}\hfill
+	
+	修改\texttt{num\_scn} $\to$ \texttt{num\_csn}，将两模块该信号连接，模块\texttt{show\_sw}中\texttt{num\_csn}恢复正常，与子模块中同名信号数据相同。
+	\paragraph{归纳总结}\hfill
+	
+	该错误来自编写代码时的拼写错误，避免该错误的方式除编写时更加专注外，还可以使用verilator作为Linter，可得到错误拼写信号未声明的相关warning从而注意到该错误。
+	
+	\subsubsection{错误2：信号为“X”}
+	
+	\paragraph{错误现象}\hfill
+	
+	如下图所示，多个信号为X。
+	
+	\begin{figure}[!h]
+		\centering
+		\includegraphics*[scale=0.6]{02-dbg-bug2.jpg}
+		\caption{多信号为X错误波形}
+	\end{figure}
+	
+	\paragraph{分析定位过程}\hfill
+	
+	根据讲义内容，该类型错误来自reg类型未被赋值或者可能的多驱动代码，考察上图中为X的三个变量与其间逻辑关系，可注意到\texttt{num\_a\_g}与\texttt{show\_data\_r}依赖\texttt{show\_data}，而该寄存器有关的代码如下。
+	
+	\begin{lstlisting}[language=verilog]
+	//new value
+	always @(posedge clk)
+	begin
+	//    show_data   <= ~switch;
+	end
+	\end{lstlisting}
+
+	\paragraph{错误原因}\hfill
+	
+	\texttt{show\_data}寄存器未能正常赋值进而影响其他寄存器的值。
+	
+	\paragraph{修正效果}\hfill
+	
+	取消该行注释，重新仿真，上述三个寄存器值正常获取，但遇到下一个错误。
+	
+	\paragraph{归纳总结}\hfill
+	
+	本次实验中为了取消设计难度而通过注释的方式设置这样的错误，实际开发过程中可能会漏写了处理某个寄存器的\texttt{always}块进而导致该寄存器未被赋值，进而导致这种问题。故而实际开发过程中应牢记预先构建的数据通路，对电路各个元件有充分的认识。
+	
+	\subsubsection{错误3：波形停止}
+	\paragraph{错误现象}\hfill
+		
+	\begin{figure}[!h]
+		\centering
+		\includegraphics*[scale=0.65]{02-dbg-bug3.jpg}
+		\caption{波形停止}
+	\end{figure}
+
+	如上图所示，波形在710\,ns处停止，取消仿真后停止在代码第90行。
+
+	\paragraph{分析定位过程}\hfill
+	
+	根据讲义内容，该类型错误来源为组合逻辑环，结合Vivado取消仿真的停止位置可注意到源代码90 $ \sim $ 101行存在组合逻辑环：
+	\begin{lstlisting}[language=verilog]
+	assign keep_a_g = num_a_g + nxt_a_g;
+	
+	assign nxt_a_g = show_data==4'd0 ? 7'b1111110 :   //0
+					 show_data==4'd1 ? 7'b0110000 :   //1
+					    ...
+					 show_data==4'd9 ? 7'b1111011 :   //9
+									   keep_a_g   ;
+	\end{lstlisting}
+
+	\paragraph{错误原因}\hfill
+	
+	\texttt{nxt\_a\_g}与\texttt{keep\_a\_g}之间互相依赖，形成了组合环路。
+	
+	\paragraph{修正效果}\hfill
+	
+	考察该处设计目的，可发现引入\texttt{keep\_a\_g}是为了在$ \texttt{show\_data}\geqslant 10 $时传递当前值给\texttt{nxt\_a\_g}，从而使得$ \texttt{show\_data}\geqslant 10 $时显示上一次的数值，故而修改方式可为删去\texttt{keep\_a\_g}信号，将\texttt{nxt\_a\_g}在$ \texttt{show\_data}\geqslant 10 $时缺省值改为\texttt{num\_a\_g}即可。
+	
+	\paragraph{归纳总结}\hfill
+	
+	组合逻辑环的产生主要因为编写代码前未对电路具有充分的认识与设计，导致编写出混乱的环路代码，实际开发过程中应先对目标电路形成充分的认识之后再进行代码的编写。
+	
+	\subsubsection{错误4：越沿采样}
+	\paragraph{错误现象}\hfill
+	
+	\begin{figure}[!h]
+		\centering
+		\includegraphics*[scale=0.65]{02-dbg-bug4.jpg}
+		\caption{越沿采样错误波形}
+	\end{figure}
+
+	如上图所示，\texttt{prev\_data}需要更新时始终认为\texttt{show\_data}与\texttt{show\_data\_r}相等而不进行更新，始终保持值为0。
+	
+	\paragraph{分析定位过程}\hfill
+	
+	根据讲义内容该错误来自于非阻塞赋值与阻塞赋值的混用，检查各寄存器的赋值语句后可注意到\texttt{show\_data\_r}使用了阻塞赋值。
+	
+	\paragraph{错误原因}\hfill
+	
+	混用非阻塞与阻塞赋值导致数据的时序关系混乱，对于在上升沿处需求赋值前处理数据的情况会导致错误。
+	
+	\paragraph{修正效果}\hfill
+	
+	将\texttt{show\_data\_r}处赋值方式修改为非阻塞赋值即可。
+	
+	\paragraph{归纳总结}\hfill
+	
+	遵循编写RTL代码的代码规范，在\texttt{always}块中的时序逻辑只使用非阻塞赋值。
+	
+	\subsubsection{错误5：功能错误}
+	
+	\paragraph{错误现象}\hfill
+	
+	\begin{figure}[!h]
+		\centering
+		\includegraphics*[scale=0.65]{02-dbg-bug5.jpg}
+		\caption{功能错误}
+	\end{figure}
+
+	如图所示前一个Marker处复位状态下数码管不显示，需求显示0；第二个Marker处\texttt{show\_data}为6但\texttt{num\_a\_g}仍为此前7的显示。
+	
+	\paragraph{分析定位过程}\hfill
+	
+	该处功能错误来自于\texttt{num\_a\_g}相关逻辑的错误，考察代码中相关逻辑的实现即可注意到\texttt{num\_a\_g}的复位值错误且\texttt{nxt\_a\_g}中遗漏了\texttt{show\_data}为6时的情况。
+	
+	\begin{lstlisting}[language=verilog]
+	always @(posedge clk)
+	begin
+		if ( !resetn )
+		begin
+			num_a_g <= 7'b0000000;	// no display
+		end
+		else
+		begin
+			num_a_g <= nxt_a_g;
+		end
+	end
+	
+	//keep unchange if show_dtaa>=10
+	
+	assign nxt_a_g = show_data==4'd0 ? 7'b1111110 :   //0
+					 show_data==4'd1 ? 7'b0110000 :   //1
+					 show_data==4'd2 ? 7'b1101101 :   //2
+					 show_data==4'd3 ? 7'b1111001 :   //3
+					 show_data==4'd4 ? 7'b0110011 :   //4
+					 show_data==4'd5 ? 7'b1011011 :   //5
+					 // missing 6
+					 show_data==4'd7 ? 7'b1110000 :   //7
+					 show_data==4'd8 ? 7'b1111111 :   //8
+					 show_data==4'd9 ? 7'b1111011 :   //9
+					 				   num_a_g;
+	\end{lstlisting}
+	
+	\paragraph{错误原因}\hfill
+	
+	设计过程中对需求未有充分的认识，在细节把控上未有充足的构思。
+	
+	\paragraph{修正效果}\hfill
+	
+	将\texttt{num\_a\_g}的复位值修改为\texttt{7'b1111110}，补充\texttt{show\_data}为6时的数码管阵列的赋值\texttt{7'b1011111}。修改后综合上板，验证需求即可。
+	
+	\section{实验总结}
+	
+	本次实验主要对Vivado与常规的数字逻辑设计过程进行了进一步的了解，在此前数字电路与组成原理课程的基础上更系统完善地认识了数字逻辑设计的流程、常见bug与调试方式。
+\end{document}
