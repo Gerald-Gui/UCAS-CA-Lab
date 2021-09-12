@@ -85,7 +85,7 @@ assign es_alu_src2 = es_src2_is_imm ? es_imm :
 
 alu u_alu(
     .alu_op     (es_alu_op    ),
-    .alu_src1   (es_alu_src2  ),
+    .alu_src1   (es_alu_src1  ),
     .alu_src2   (es_alu_src2  ),
     .alu_result (es_alu_result)
     );

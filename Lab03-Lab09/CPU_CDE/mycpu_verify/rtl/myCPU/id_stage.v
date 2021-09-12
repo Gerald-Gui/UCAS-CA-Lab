@@ -125,6 +125,17 @@ assign ds_to_es_bus = {alu_op      ,  //149:138
 assign ds_ready_go    = 1'b1;
 assign ds_allowin     = !ds_valid || ds_ready_go && es_allowin;
 assign ds_to_es_valid = ds_valid && ds_ready_go;
+
+always @(posedge clk) begin
+    if (reset) begin
+        ds_valid <= 1'b0;
+    end else if (br_taken) begin
+        ds_valid <= 1'b0;
+    end else if (ds_allowin) begin
+        ds_valid <= fs_to_ds_valid;
+    end
+end
+
 always @(posedge clk) begin 
     if (fs_to_ds_valid && ds_allowin) begin
         fs_to_ds_bus_r <= fs_to_ds_bus;
@@ -185,6 +196,7 @@ assign alu_op[ 9] = inst_srli_w;
 assign alu_op[10] = inst_srai_w;
 assign alu_op[11] = inst_lu12i_w;
 
+assign load_op = inst_ld_w;
 
 assign need_ui5   =  inst_slli_w | inst_srli_w | inst_srai_w;
 assign need_si12  =  inst_addi_w | inst_ld_w | inst_st_w;
