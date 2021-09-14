@@ -1,2 +1,8 @@
 func/
 gettrace/
+mycpu_verify/run_vivado/
+mycpu_verify/testbench/
+mycpu_verify/rtl/BRIDGE/
+mycpu_verify/rtl/CONFREG/
+mycpu_verify/rtl/xilinx_ip/
+mycpu_verify/rtl/soc_lite_top.v
