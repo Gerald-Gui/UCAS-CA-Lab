@@ -10,3 +10,12 @@
 
 !*.pdf
 !*.tex
+
+Lab03-Lab09/CPU_CDE/func/
+Lab03-Lab09/CPU_CDE/gettrace/
+Lab03-Lab09/CPU_CDE/mycpu_verify/run_vivado/
+Lab03-Lab09/CPU_CDE/mycpu_verify/testbench/
+Lab03-Lab09/CPU_CDE/mycpu_verify/rtl/BRIDGE/
+Lab03-Lab09/CPU_CDE/mycpu_verify/rtl/CONFREG/
+Lab03-Lab09/CPU_CDE/mycpu_verify/rtl/xilinx_ip/
+Lab03-Lab09/CPU_CDE/mycpu_verify/rtl/soc_lite_top.v
