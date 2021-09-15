@@ -16,7 +16,10 @@ module exe_stage(
     output        data_sram_en   ,
     output [ 3:0] data_sram_wen  ,
     output [31:0] data_sram_addr ,
-    output [31:0] data_sram_wdata
+    output [31:0] data_sram_wdata,
+
+    // blk bus to id
+    output [`ES_BLK_BUS_WD   -1:0] es_blk_bus
 );
 
 reg         es_valid      ;
@@ -94,5 +97,7 @@ assign data_sram_en    = (es_res_from_mem || es_mem_we) && es_valid;
 assign data_sram_wen   = es_mem_we ? 4'hf : 4'h0;
 assign data_sram_addr  = es_alu_result;
 assign data_sram_wdata = es_rkd_value;
+
+assign es_blk_bus = {es_gr_we & es_valid, es_dest};
 
 endmodule

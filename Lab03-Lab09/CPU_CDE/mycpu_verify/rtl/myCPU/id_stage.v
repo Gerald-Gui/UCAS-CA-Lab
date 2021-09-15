@@ -15,7 +15,11 @@ module id_stage(
     //to fs
     output [`BR_BUS_WD       -1:0] br_bus        ,
     //to rf: for write back
-    input  [`WS_TO_RF_BUS_WD -1:0] ws_to_rf_bus  
+    input  [`WS_TO_RF_BUS_WD -1:0] ws_to_rf_bus  ,
+
+    // blk signals from es, ms, ws
+    input  [`ES_BLK_BUS_WD   -1:0] es_blk_bus,
+    input  [`MS_BLK_BUS_WD   -1:0] ms_blk_bus
 );
 
 reg         ds_valid   ;
@@ -107,6 +111,43 @@ wire [31:0] rf_rdata2;
 
 wire        rj_eq_rd;
 
+// block strategy
+wire        es_we;
+wire [ 4:0] es_waddr;
+wire        ms_we;
+wire [ 4:0] ms_waddr;
+
+wire        es_hazard;
+wire        ms_hazard;
+wire        ws_hazard;
+
+wire        src_reg1;
+wire        src_reg2;
+
+assign {es_we, es_waddr} = es_blk_bus;
+assign {ms_we, ms_waddr} = ms_blk_bus;
+
+assign src_reg1 = inst_add_w  | inst_sub_w  | inst_slt    | inst_sltu   |
+                  inst_nor    | inst_and    | inst_or     | inst_xor    |
+                  inst_slli_w | inst_srli_w | inst_srai_w | inst_addi_w |
+                  inst_ld_w   | inst_st_w   | inst_jirl   | inst_beq    | inst_bne;
+assign src_reg2 = inst_add_w  | inst_sub_w  | inst_slt    | inst_sltu   |
+                  inst_nor    | inst_and    | inst_or     | inst_xor    |
+                  inst_st_w   | inst_beq    | inst_bne    | inst_lu12i_w;
+
+assign es_hazard = es_we && es_waddr != 0 && (
+                   src_reg1 && es_waddr == rf_raddr1 ||
+                   src_reg2 && es_waddr == rf_raddr2
+                   );
+assign ms_hazard = ms_we && ms_waddr != 0 && (
+                   src_reg1 && ms_waddr == rf_raddr1 ||
+                   src_reg2 && ms_waddr == rf_raddr2
+                   );
+assign ws_hazard = rf_we && rf_waddr != 0 && (
+                   src_reg1 && rf_waddr == rf_raddr1 ||
+                   src_reg2 && rf_waddr == rf_raddr2
+                   );
+
 assign br_bus       = {br_taken,br_target};
 
 assign ds_to_es_bus = {alu_op      ,  //149:138
@@ -122,7 +163,9 @@ assign ds_to_es_bus = {alu_op      ,  //149:138
                        ds_pc          //31 :0
                       };
 
-assign ds_ready_go    = 1'b1;
+// with blk
+assign ds_ready_go    = ~(es_hazard | ms_hazard | ws_hazard);
+
 assign ds_allowin     = !ds_valid || ds_ready_go && es_allowin;
 assign ds_to_es_valid = ds_valid && ds_ready_go;
 
@@ -254,8 +297,8 @@ assign rj_value  = rf_rdata1;
 assign rkd_value = rf_rdata2;
 
 assign rj_eq_rd = (rj_value == rkd_value);
-assign br_taken = (   inst_beq  &&  rj_eq_rd
-                   || inst_bne  && !rj_eq_rd
+assign br_taken = (   inst_beq  &&  rj_eq_rd && ds_ready_go
+                   || inst_bne  && !rj_eq_rd && ds_ready_go
                    || inst_jirl
                    || inst_bl
                    || inst_b

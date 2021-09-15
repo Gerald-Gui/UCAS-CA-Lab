@@ -1,3 +1,5 @@
+`include "mycpu.h"
+
 module mycpu_top(
     input         clk,
     input         resetn,
@@ -37,6 +39,9 @@ wire [`MS_TO_WS_BUS_WD -1:0] ms_to_ws_bus;
 wire [`WS_TO_RF_BUS_WD -1:0] ws_to_rf_bus;
 wire [`BR_BUS_WD       -1:0] br_bus;
 
+wire [`ES_BLK_BUS_WD - 1:0] es_blk_bus;
+wire [`MS_BLK_BUS_WD - 1:0] ms_blk_bus;
+
 // IF stage
 if_stage if_stage(
     .clk            (clk            ),
@@ -71,7 +76,10 @@ id_stage id_stage(
     //to fs
     .br_bus         (br_bus         ),
     //to rf: for write back
-    .ws_to_rf_bus   (ws_to_rf_bus   )
+    .ws_to_rf_bus   (ws_to_rf_bus   ),
+
+    .es_blk_bus     (es_blk_bus     ),
+    .ms_blk_bus     (ms_blk_bus     )
 );
 // EXE stage
 exe_stage exe_stage(
@@ -90,7 +98,9 @@ exe_stage exe_stage(
     .data_sram_en   (data_sram_en   ),
     .data_sram_wen  (data_sram_wen  ),
     .data_sram_addr (data_sram_addr ),
-    .data_sram_wdata(data_sram_wdata)
+    .data_sram_wdata(data_sram_wdata),
+
+    .es_blk_bus     (es_blk_bus)
 );
 // MEM stage
 mem_stage mem_stage(
@@ -106,7 +116,9 @@ mem_stage mem_stage(
     .ms_to_ws_valid (ms_to_ws_valid ),
     .ms_to_ws_bus   (ms_to_ws_bus   ),
     //from data-sram
-    .data_sram_rdata(data_sram_rdata)
+    .data_sram_rdata(data_sram_rdata),
+
+    .ms_blk_bus     (ms_blk_bus)
 );
 // WB stage
 wb_stage wb_stage(
