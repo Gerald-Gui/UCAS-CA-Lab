@@ -297,12 +297,12 @@ assign rj_value  = rf_rdata1;
 assign rkd_value = rf_rdata2;
 
 assign rj_eq_rd = (rj_value == rkd_value);
-assign br_taken = (   inst_beq  &&  rj_eq_rd && ds_ready_go
-                   || inst_bne  && !rj_eq_rd && ds_ready_go
+assign br_taken = (   inst_beq  &&  rj_eq_rd
+                   || inst_bne  && !rj_eq_rd
                    || inst_jirl
                    || inst_bl
                    || inst_b
-                  ) && ds_valid; 
+                  ) && ds_valid && ds_ready_go; 
 assign br_target = (inst_beq || inst_bne || inst_bl || inst_b) ? (ds_pc + br_offs) :
                                                    /*inst_jirl*/ (rj_value + jirl_offs);
 
