@@ -133,7 +133,7 @@ assign src_reg1 = inst_add_w  | inst_sub_w  | inst_slt    | inst_sltu   |
                   inst_ld_w   | inst_st_w   | inst_jirl   | inst_beq    | inst_bne;
 assign src_reg2 = inst_add_w  | inst_sub_w  | inst_slt    | inst_sltu   |
                   inst_nor    | inst_and    | inst_or     | inst_xor    |
-                  inst_st_w   | inst_beq    | inst_bne    | inst_lu12i_w;
+                  inst_st_w   | inst_beq    | inst_bne;
 
 assign es_hazard = es_we && es_waddr != 0 && (
                    src_reg1 && es_waddr == rf_raddr1 ||
