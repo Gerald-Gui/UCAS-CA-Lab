@@ -16,7 +16,7 @@ module mem_stage(
     input  [31                 :0] data_sram_rdata,
 
     // blk bus to id
-    output [`MS_BLK_BUS_WD   -1:0] ms_blk_bus
+    output [`MS_FWD_BLK_BUS_WD-1:0] ms_fwd_blk_bus
 );
 
 reg         ms_valid;
@@ -65,6 +65,6 @@ assign mem_result = data_sram_rdata;
 assign ms_final_result = ms_res_from_mem ? mem_result
                                          : ms_alu_result;
 
-assign ms_blk_bus = {ms_gr_we & ms_valid, ms_dest};
+assign ms_fwd_blk_bus = {ms_gr_we & ms_valid, ms_dest, ms_final_result};
 
 endmodule

@@ -18,8 +18,8 @@ module id_stage(
     input  [`WS_TO_RF_BUS_WD -1:0] ws_to_rf_bus  ,
 
     // blk signals from es, ms, ws
-    input  [`ES_BLK_BUS_WD   -1:0] es_blk_bus,
-    input  [`MS_BLK_BUS_WD   -1:0] ms_blk_bus
+    input  [`ES_FWD_BLK_BUS_WD-1:0] es_fwd_blk_bus,
+    input  [`MS_FWD_BLK_BUS_WD-1:0] ms_fwd_blk_bus
 );
 
 reg         ds_valid   ;
@@ -111,21 +111,28 @@ wire [31:0] rf_rdata2;
 
 wire        rj_eq_rd;
 
-// block strategy
-wire        es_we;
+// block && forward strategy
+wire        es_fwd_we;
+wire        es_blk_we;
 wire [ 4:0] es_waddr;
-wire        ms_we;
+wire [31:0] es_wdata;
+wire        ms_fwd_we;
 wire [ 4:0] ms_waddr;
+wire [31:0] ms_wdata;
 
-wire        es_hazard;
-wire        ms_hazard;
-wire        ws_hazard;
+wire es_blk;
+wire es_reg1_hazard;
+wire es_reg2_hazard;
+wire ms_reg1_hazard;
+wire ms_reg2_hazard;
+wire ws_reg1_hazard;
+wire ws_reg2_hazard;
 
 wire        src_reg1;
 wire        src_reg2;
 
-assign {es_we, es_waddr} = es_blk_bus;
-assign {ms_we, ms_waddr} = ms_blk_bus;
+assign {es_fwd_we, es_blk_we, es_waddr, es_wdata} = es_fwd_blk_bus;
+assign {ms_fwd_we, ms_waddr, ms_wdata} = ms_fwd_blk_bus;
 
 assign src_reg1 = inst_add_w  | inst_sub_w  | inst_slt    | inst_sltu   |
                   inst_nor    | inst_and    | inst_or     | inst_xor    |
@@ -135,18 +142,17 @@ assign src_reg2 = inst_add_w  | inst_sub_w  | inst_slt    | inst_sltu   |
                   inst_nor    | inst_and    | inst_or     | inst_xor    |
                   inst_st_w   | inst_beq    | inst_bne;
 
-assign es_hazard = es_we && es_waddr != 0 && (
-                   src_reg1 && es_waddr == rf_raddr1 ||
-                   src_reg2 && es_waddr == rf_raddr2
-                   );
-assign ms_hazard = ms_we && ms_waddr != 0 && (
-                   src_reg1 && ms_waddr == rf_raddr1 ||
-                   src_reg2 && ms_waddr == rf_raddr2
-                   );
-assign ws_hazard = rf_we && rf_waddr != 0 && (
-                   src_reg1 && rf_waddr == rf_raddr1 ||
-                   src_reg2 && rf_waddr == rf_raddr2
-                   );
+assign es_blk = es_blk_we && es_waddr != 0 && (
+                src_reg1 && es_waddr == rf_raddr1 ||
+                src_reg1 && es_waddr == rf_raddr2
+                );
+assign es_reg1_hazard = es_fwd_we && es_waddr != 0 && src_reg1 && es_waddr == rf_raddr1;
+assign es_reg2_hazard = es_fwd_we && es_waddr != 0 && src_reg2 && es_waddr == rf_raddr2;
+assign ms_reg1_hazard = ms_fwd_we && ms_waddr != 0 && src_reg1 && ms_waddr == rf_raddr1;
+assign ms_reg2_hazard = ms_fwd_we && ms_waddr != 0 && src_reg2 && ms_waddr == rf_raddr2;
+assign ws_reg1_hazard = rf_we     && rf_waddr != 0 && src_reg1 && rf_waddr == rf_raddr1;
+assign ws_reg2_hazard = rf_we     && rf_waddr != 0 && src_reg2 && rf_waddr == rf_raddr2;
+
 
 assign br_bus       = {br_taken,br_target};
 
@@ -164,7 +170,7 @@ assign ds_to_es_bus = {alu_op      ,  //149:138
                       };
 
 // with blk
-assign ds_ready_go    = ~(es_hazard | ms_hazard | ws_hazard);
+assign ds_ready_go    = ~es_blk;
 
 assign ds_allowin     = !ds_valid || ds_ready_go && es_allowin;
 assign ds_to_es_valid = ds_valid && ds_ready_go;
@@ -292,9 +298,14 @@ regfile u_regfile(
     .wdata  (rf_wdata )
     );
 
-
-assign rj_value  = rf_rdata1; 
-assign rkd_value = rf_rdata2;
+assign rj_value  = es_reg1_hazard ? es_wdata :
+                   ms_reg1_hazard ? ms_wdata :
+                   ws_reg1_hazard ? rf_wdata :
+                                    rf_rdata1;
+assign rkd_value = es_reg2_hazard ? es_wdata :
+                   ms_reg2_hazard ? ms_wdata :
+                   ws_reg2_hazard ? rf_wdata :
+                                    rf_rdata2;
 
 assign rj_eq_rd = (rj_value == rkd_value);
 assign br_taken = (   inst_beq  &&  rj_eq_rd
