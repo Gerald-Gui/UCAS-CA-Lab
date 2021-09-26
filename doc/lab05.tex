@@ -1,0 +1,583 @@
+\documentclass[UTF-8,twoside,c5size]{ctexart}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{geometry}
+\usepackage{listings}
+\usepackage{setspace}
+\usepackage{xeCJK}
+\usepackage{ulem}
+\usepackage{pstricks}
+\usepackage{pstricks-add}
+\usepackage{bm}
+\usepackage{mathtools}
+\usepackage{breqn}
+\usepackage{mathrsfs}
+\usepackage{esint}
+\usepackage{textcomp}
+\usepackage{upgreek}
+\usepackage{pifont}
+\usepackage{tikz}
+\usepackage{circuitikz}
+\usepackage{caption}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{pgfplots}
+\usepackage{multirow}
+\usepackage{pgfplotstable}
+\usepackage{mhchem}
+
+\newcolumntype{Y}{>{\centering\arraybackslash}X}
+\geometry{a4paper,centering,top=1.27cm,bottom=2.54cm,left=2cm,right=2cm}
+\graphicspath{{figures/}}
+\pagestyle{plain}
+\captionsetup{font=small}
+
+%\CTEXsetup[name={,.}]{section}
+\CTEXsetup[format={\raggedright\heiti\noindent\zihao{-3}},numberformat={\bfseries}]{section}
+\CTEXsetup[format={\raggedright\heiti\zihao{4}},numberformat={\bfseries}]{subsection}
+\CTEXsetup[format={\raggedright\heiti\quad\zihao{-4}},numberformat={\bfseries}]{subsubsection}
+\CTEXsetup[format={\raggedright\heiti\qquad},numberformat={\bfseries}]{paragraph}
+\CTEXsetup[beforeskip=1.0ex plus 0.2ex minus .2ex, afterskip=1.0ex plus 0.2ex minus .2ex]{paragraph}
+\renewcommand\thefootnote{\ding{\numexpr171+\value{footnote}}}
+
+\setstretch{1.5}
+
+\setCJKfamilyfont{boldsong}[AutoFakeBold = {2.17}]{SimSun}
+\newcommand*{\boldsong}{\CJKfamily{boldsong}}
+%\DeclareMathOperator\dif{d\!}
+\newcommand*{\me}{\mathop{}\!\mathrm{e}}
+\newcommand*{\mpar}{\mathop{}\!\partial}
+\newcommand*{\dif}{\mathop{}\!\mathrm{d}}
+\newcommand*{\tab}{\indent}
+\newcommand*{\mcelsius}{\mathop{}\!{^\circ}\mathrm{C}}
+\renewcommand*{\Im}{\mathrm{Im}\,}
+
+\setcounter{secnumdepth}{4}
+
+\renewcommand\arraystretch{1.5}
+
+\lstset{
+	backgroundcolor=\color[RGB]{245,245,245},
+	keywordstyle=\color{blue}\bfseries,
+	basicstyle=\small\ttfamily,
+	commentstyle=\itshape\color{olive},
+	numberstyle=\ttfamily,
+	tabsize=4,
+	breaklines=true
+}
+
+\begin{document}
+	\begin{center}
+		\heiti\zihao{-2}
+		实验\textbf{3} $ \bm\sim $ \textbf{5}报告
+	\end{center}
+
+	\begin{table*}[!h]
+		\raggedleft
+		\zihao{-4}
+		\begin{tabular}{cc}
+			{\heiti 学号} & {2019K8009929019} \\
+			{\heiti 姓名} & 桂庭辉 \\
+			{\heiti 箱子号} & 44
+		\end{tabular}
+	\end{table*}
+	
+	\section{实验任务}
+	本次专题分为三个实验项目，主要工作是在给出的实验框架下修订bug（lab3），通过阻塞或前递技术处理数据与控制相关(lab4、5)，通过这些内容对简单流水线CPU的设计、调试、优化方式加深理解。检验方式为实验框架给出的基于trace的比对验证，在行为仿真与上板验证两个级别验证结果。
+	
+	\section{实验设计}
+	
+	以下内容仅包括myCPU目录下的设计，即仅考察单发射静态5级流水线CPU的设计，考察设计版本为lab5完成后的最终设计。当然实验过程中简要理解实验框架的其他内容也有助于解决部分错误，如lab4、5中可能的\texttt{st.w}指令内存写数据错误。
+	
+	\subsection{总体设计思路}
+	
+	设计目标为基于SRAM的支持LoongArch精简版中部分指令的单发射静态5级流水线CPU，根据需求将CPU划分为5个流水级IF（取指）、ID（译码）、EXE（执行）、MEM（访存）、WB（访存），各流水级间控制与数据传递方式采用实验讲义3.1.4.12节介绍过的valid-allowin机制。根据流水级功能，在取指级IF与指令RAM通信，在执行级EXE与访存级MEM与数据RAM通信，在流水级添加debug相关接口。根据实验讲义、理论课内容等参考资料可给出下页结构设计简图\footnote{该简图忽略debug相关接口的连线，省略部分逻辑，省略内容在正文将会介绍，各流水级缓存内容简要介绍。}。各流水级设计在下文分模块介绍。
+	
+	\begin{figure}[p]
+		\centering
+		\includegraphics*[height=0.95\textheight]{figure-lab5.pdf}
+		\caption{简单单发射静态5级流水线CPU结构简图}
+	\end{figure}
+	
+	\subsection{重要模块设计：IF\_stage}
+	\subsubsection{功能描述}
+	
+	5级流水线的取指级，负责PC内容的维护以及与指令SRAM交互获取指令码。
+	
+	\subsubsection{工作原理}
+	
+	实现上构造一个伪流水级pre-IF，用于生成\texttt{nextpc}，以\texttt{nextpc}为指令RAM读地址，PC寄存器在IF级更新。同时该模块接收来自下一流水线ID级生成的跳转信号\texttt{br\_taken}，\texttt{br\_target}，\texttt{nextpc}的生成兼顾跳转信号的选择，以保证取回正确应执行的指令码。
+	
+	\newpage
+	
+	\subsubsection{接口定义}
+	
+	后文其他时序模块的时钟信号\texttt{clk}与复位信号\texttt{reset}与此处含义相同，不再赘述。
+	
+	\begin{table}[!h]
+		\centering
+		\caption{IF\_stage接口定义}
+		\begin{tabularx}{\textwidth}{|c|c|c|Y|}
+			\hline
+			\textbf{名称} & \textbf{方向} & \textbf{位宽} & \textbf{描述} \\
+			\hline
+			\texttt{clk} & \textsc{In} & 1 & 时钟信号 \\
+			\hline
+			\texttt{reset} & \textsc{In} & 1 & 复位信号 \\
+			\hline
+			\texttt{ds\_allowin} & \textsc{In} & 1 & ID级运行指令数据流入 \\
+			\hline
+			\texttt{br\_bus} & \textsc{In} & 33 & 来自ID级的跳转使能与跳转目的 \\
+			\hline
+			\texttt{fs\_to\_ds\_valid} & \textsc{Out} & 1 & IF级向ID级传递数据有效 \\
+			\hline
+			\texttt{fs\_to\_ds\_bus} & \textsc{Out} & 64 & IF级向ID级传递的数据，包括PC与指令码 \\
+			\hline
+			\texttt{inst\_sram\_en} & \textsc{Out} & 1 & 指令RAM使能信号 \\
+			\hline
+			\texttt{inst\_sram\_wen} & \textsc{Out} & 4 & 指令RAM写使能信号，置为全0 \\
+			\hline
+			\texttt{inst\_sram\_addr} & \textsc{Out} & 32 & 指令RAM读写地址，始终为\texttt{nextpc} \\
+			\hline
+			\texttt{inst\_sram\_wdata} & \textsc{Out} & 32 & 指令RAM写数据，置为全0 \\
+			\hline
+			\texttt{inst\_sram\_rdata} & \textsc{In} & 32 & 指令RAM读数据，即取到的指令码 \\
+			\hline
+		\end{tabularx}
+	\end{table}
+		
+	\subsection{重要模块设计：ID\_stage}
+	\subsubsection{功能描述}
+	
+	5级流水线的译码级，负责对IF级取到的指令码进行译码，根据译码结果访问寄存器堆\footnote{寄存器堆的读写特性在lab2实验报告中已有过相关介绍，本次实验报告不再赘述。}读取寄存器数据，同时生成各种控制信号传递给下游流水级。此外为了解决控制相关与数据相关，需要判断跳转条件、生成跳转目标、判断与下游流水级指令是否存在数据相关、处理前递数据，是本次实验主要修改的模块。
+	
+	\subsubsection{工作原理}
+	
+	根据目前选择的20条指令与LoongArch 32位指令编码方式进行译码，根据指令功能生成\texttt{alu\_op}、访存使能、寄存器写使能等控制信号与立即数等数据，生成寄存器堆读地址，并据此访问寄存器堆获取可能的源操作数。
+	
+	控制相关的处理上，在\texttt{br\_taken}拉高，即发生跳转时，将\texttt{ds\_valid}寄存器置0，取消已进入IF级的指令，阻塞IF级一拍重新获取正确的指令。
+	
+	数据相关的处理是lab4与lab5主要内容，为实现阻塞与前递技术，我引入了从EXE级与MEM级到ID级的信号（信号的生成留到后文），WB级到ID级已有写回通路，只需如结构图中引出一条参与数据相关判断即可。类比写回通路的数据，EXE级与MEM级的前递数据同样包括寄存器写使能、写地址、写数据，此外EXE级还包括阻塞使能信号，处理当前设计下仅有的数据阻塞情况。
+	
+	结合讲义内容，通过寄存器写使能是否有效、寄存器写地址是否为零、指令对源操作数实际依赖情况筛选排除掉实际不发生数据相关的情况，针对两个源操作数与三个可能的数据来源生成6个冲突信号，根据冲突信号在前递数据、寄存器堆读数据间选择，生成最终的源操作数\texttt{rj\_value}、\texttt{rkd\_value}传递给后续流水级。
+	
+	\subsubsection{接口定义}
+	
+	流水级间交互信号（即下表前六行）含义大体相同，后续三个流水级不再描述这些信号。
+	
+	\begin{table}[!h]
+		\centering
+		\caption{ID\_stage部分接口定义}
+		\begin{tabularx}{\textwidth}{|c|c|c|Y|}
+			\hline
+			\textbf{名称} & \textbf{方向} & \textbf{位宽} & \textbf{描述} \\
+			\hline
+			\texttt{es\_allowin} & \textsc{In} & 1 & 上游流水级EXE级允许数据流入 \\
+			\hline
+			\texttt{ds\_allowin} & \textsc{Out} & 1 & 当前流水级ID级允许数据流入 \\
+			\hline
+			\texttt{fs\_to\_ds\_valid} & \textsc{In} & 1 & 上游流水级IF级流入数据有效 \\
+			\hline
+			\texttt{fs\_to\_ds\_bus} & \textsc{In} & 64 & 上游流水级流入数据 \\
+			\hline
+			\texttt{ds\_to\_es\_valid} & \textsc{Out} & 1 & 向下游流水线EXE级流出数据有效 \\
+			\hline
+			\texttt{ds\_to\_es\_bus} & \textsc{Out} & 150 & 向下游流水级流出数据 \\
+			\hline
+			\texttt{br\_to\_bus} & \textsc{Out} & 33 & 向IF级前递的跳转信号 \\
+			\hline
+			\texttt{ws\_to\_rf\_bus} & \textsc{In} & 38 & 来自WB级的寄存器堆写信号 \\
+			\hline
+			\texttt{es\_fwd\_blk\_bus} & \textsc{In} & 39 & 来自EXE级的前递数据 \\
+			\hline
+			\texttt{ms\_fwd\_blk\_bus} & \textsc{In} & 38 & 来自MEM级的前递数据 \\
+			\hline
+		\end{tabularx}
+	\end{table}
+	
+	\subsection{重要模块设计：EXE\_stage}
+	\subsubsection{功能描述}
+	5级流水线的译码级，负责对ID生成的各种数据进行运算，是运算指令的实际操作步骤、访存指令的地址生成步骤，主要实现通过ALU完成。同时由于同步RAM的读写特性，于其交互的使能信号在该流水级发生，访存指令的相关说明留待下一模块MEM-stage一并说明，本节主要关注运算指令与前递信号的生成。
+	
+	\subsubsection{工作原理}
+	对于运算指令，实际运算过程由ALU完成，为此需要提供ALU操作码\texttt{alu\_op}以及两个ALU操作数，这些数据已大半由ID级完成，EXE级仅需对操作数做进一步选取。
+	
+	ALU的实现在此处简单说明，不再单列一节介绍。ALU是纯组合逻辑的运算部件，功能在于根据\texttt{alu\_op}指示的运算方式处理两个操作数，将运算结果输出到\texttt{alu\_result}接口上。其实现主要分为三部分：(1)对\texttt{alu\_op}译码；(2)对各种运算计算结果；(3)根据第一部分的译码结果选择第二部分的计算结果，选择结果即为\texttt{alu\_result}。
+	
+	前递信号的生成上与写回通路数据基本一致，都需用流水级\texttt{valid}信号屏蔽流水级无效时的前递数据。区别在于当前情形下唯一的阻塞需求，即\texttt{ld.w}位于EXE级且与ID级指令发生冲突时，需要阻塞ID一拍等待数据RAM返回读数据。故而需要再提供一位阻塞使能信号，该信号与\texttt{es\_res\_from\_mem}等效，当然与寄存器写使能一样需要通过流水级\texttt{valid}信号屏蔽掉未定义状态。
+	
+	\subsubsection{接口定义}
+	\begin{table}[!h]
+		\centering
+		\caption{EXE\_stage部分接口定义}
+		\begin{tabularx}{\textwidth}{|c|c|c|Y|}
+			\hline
+			\textbf{名称} & \textbf{方向} & \textbf{位宽} & \textbf{描述} \\
+			\hline
+			\texttt{data\_sram\_en} & \textsc{Out} & 1 & 数据RAM使能信号 \\
+			\hline
+			\texttt{data\_sram\_wen} & \textsc{Out} & 4 & 数据RAM写使能信号，store指令置为全1，其他全0 \\
+			\hline
+			\texttt{data\_sram\_addr} & \textsc{Out} & 32 & 数据RAM访存地址 \\
+			\hline
+			\texttt{data\_sram\_wdata} & \textsc{Out} & 32 & 数据RAM写入数据 \\
+			\hline
+			\texttt{es\_fwd\_blk\_bus} & \textsc{Out} & 39 & 向ID级的前递数据 \\
+			\hline
+		\end{tabularx}
+	\end{table}
+
+	\subsection{重要模块设计：MEM\_stage}
+	\subsubsection{功能描述与工作原理}
+	实际设计中MEM级的逻辑如结构图所示，仅是\footnote{当然还有前递给ID级的相关数据，但实现与EXE级相比仅是去掉了阻塞使能，EXE级已指出阻塞使能为该级前递特有，故MEM级前递与EXE级前递其他部分一致，此处不做赘述。}根据上游传递来的控制信号在EXE级计算结果与数据RAM读取结果间选择其一作为写回结果传递给下游写回级。此处简要介绍访存指令的处理方式，作为EXE、MEM两级与数据RAM交互设计的注解。
+	
+	考虑作为同步RAM的数据RAM读写特性，在第一拍向其发出使能与地址信号后，等到第二拍才能从读端口获取到读数据。基于这样的特点，选择在EXE级向数据RAM发送读使能与地址，当前设计中EXE级与MEM级间不存在阻塞，故而下一拍该指令流入MEM级，正好获取到数据RAM发送回来的读数据。由于数据RAM仅有一个地址接口，store指令使能、地址、数据的发送也随之迁移到EXE级而非MEM级完成。这样设计充分利用了同步RAM的读写特性，避免了在MEM级引入新的阻塞，保证了流水线效率。
+		
+	\subsubsection{接口定义}
+	
+	\begin{table}[!h]
+		\centering
+		\caption{MEM\_stage部分接口定义}
+		\begin{tabularx}{\textwidth}{|c|c|c|Y|}
+			\hline
+			\textbf{名称} & \textbf{方向} & \textbf{位宽} & \textbf{描述} \\
+			\hline
+			\texttt{data\_sram\_rdata} & \textsc{In} & 32 & 数据RAM发回的读数据 \\
+			\hline
+			\texttt{ms\_fwd\_blk\_bus} & \textsc{Out} & 38 & 向ID级的前递数据 \\
+			\hline
+		\end{tabularx}
+	\end{table}
+
+\hfill
+
+	至此5级流水线只剩下了写回级，无论从结构图还是实际代码来看，写回级逻辑除流水线控制外，只涉及到将数据写回寄存器堆与将信息呈递给debug接口。其中前者在前面几个流水级中已有叙述，后者并非CPU设计的核心内容，仅是开发框架下的debug工具。故而此处不再对写回级单列一节进行叙述。
+	
+\newpage
+	
+	\section{实验过程}
+	
+	\subsection{实验流水账}
+	2021.09.12 13:30 $ \sim $ 2021.09.12 16:30 ：完成lab3与简单的错误记录
+	
+	2021.09.15 20:30 $ \sim $ 2021.09.05 22:10 ：完成lab4
+	
+	2021.09.22 15:00 $ \sim $ 2021.09.22 16:00 ：完成lab5
+	
+	2021.09.25 18:00 $ \sim $ 2021.09.26 00:00 ：完成实验报告撰写与排版
+	
+	\subsection{错误记录}
+	
+	此处记录的错误主要来自lab3中实验框架设置的错误，仅有最后一个错误来自lab4实际设计过程。
+	
+	\subsubsection{错误\textbf{1：}流水线无法正常启动}
+	\paragraph{错误现象}\hfill
+	
+	如图所示，在未对lab3实验框架做任何修改的情况下启动仿真，结果为\texttt{debug}信号始终全为X，无法进行比对，仿真始终不停止。
+	\begin{figure}[!h]
+		\centering
+		\includegraphics*[width=0.95\textwidth]{03-dbg-01.jpg}
+		\caption{错误1：流水线无法正常启动}
+	\end{figure}
+	\paragraph{分析定位过程}\hfill
+	
+	实际错误类型为信号为X，故而从写回级的debug信号逻辑上溯，注意到译码级流水线控制逻辑的不足。
+	
+	\paragraph{错误原因}\hfill
+	
+	ID级的流水级\texttt{valid}寄存器未赋值，导致流水线启动失败。
+	
+	\paragraph{修正效果}\hfill
+	
+	此处暂时学习其他流水级\texttt{valid}寄存器的逻辑增添如下代码：
+	\begin{lstlisting}[language=verilog]
+	always @ (posedge clk) begin
+		if (reset) begin
+			ds_valid <= 1'b0;
+		end else if (ds_allowin) begin
+			ds_valid <= fs_to_ds_valid;
+		end
+	end
+	\end{lstlisting}
+	当然，这样设计是不够的，这将引发另一个错误，但此处暂且按下不提。增添上述代码后流水级成功启动。
+	
+	\begin{figure}[!h]
+		\centering
+		\includegraphics*[width=0.95\textwidth]{03-dbg-01-02.jpg}
+		\caption{错误1修订后流水级成功启动}
+	\end{figure}
+	
+	\paragraph{归纳总结}\hfill
+	
+	这样的错误在编写大型项目时或是易犯的，但事先对逻辑设计具备充分的认识与理解后应能尽量避免。一个或可能的方式是独立编写流水线控制与处理器数据通路设计两个板块，降低单次编写的工作量，避免注意力难以维持导致顾此失彼。
+	
+	\subsubsection{错误\textbf{2：}\texttt{br\_bus}位宽}
+	\paragraph{错误现象}\hfill
+	
+	如图所示，myCPU仅能顺序执行，无法跳转至0x1c00070c处。
+	\begin{figure}[!h]
+		\centering
+		\includegraphics*[width=0.95\textwidth]{03-dbg-02-01.jpg}
+		\caption{无法发生跳转}
+	\end{figure}
+
+	\paragraph{分析定位过程}\hfill
+	
+	考察IF级与ID级跳转相关信号的波形，发现\texttt{br\_taken}其值无效。
+	\paragraph{错误原因}\hfill
+	
+	\texttt{mycpu.h}头文件中对\texttt{BR\_BUS\_WD}定义为32缺失一位。
+	\paragraph{修正效果}\hfill
+	
+	修改该宏定义为33，myCPU能够跳转至0x1c00070c处。
+	\paragraph{归纳总结}\hfill
+	
+	该问题本质是位宽未对齐。verilog支持在\texttt{assign}或赋值过程时右值短于左值时对右值自动扩展，具体扩展方式取决于是否声明为\texttt{signed}（默认为无符号数据），但左值短于右值的方式右值的高位将被舍弃。使用verilator作为verilog linter时上述不对齐情况均会给出warning，根据信息修订错误即可。
+	
+	\subsubsection{错误\textbf{3：}\texttt{load\_op}逻辑缺失}
+	\paragraph{错误现象}\hfill
+	
+	如图所示，写回级的寄存器写数据为X。
+	
+	\begin{figure}[!h]
+		\centering
+		\includegraphics*[width=0.95\textwidth]{03-dbg-03.jpg}
+		\caption{写回数据为X}
+	\end{figure}
+	
+	\paragraph{分析定位过程}\hfill
+	
+	根据\texttt{debug\_wb\_rf\_wdata}的逻辑沿流水线上溯，观察相关信号波形注意到如下现象：
+	\begin{figure}[!h]
+		\centering
+		\includegraphics*[width=0.95\textwidth]{03-dbg-03-02.jpg}
+		\caption{自\texttt{load\_op}以来控制信号为Z}
+	\end{figure}
+	
+	\paragraph{错误原因}\hfill
+	
+	ID级中\texttt{load\_op}信号为被\texttt{assign}，始终为\texttt{Z}，最终导致MEM级最终选择写回数据时选择器出错。
+	
+	\paragraph{修正效果}\hfill
+	
+	根据后续逻辑考察\texttt{load\_op}信号含义，可认识到该信号指示当前指令是否为\texttt{load}指令，即是否进行读内存操作。在\texttt{ID\_stage.v}中添加如下代码后即可解决该问题：
+	\begin{lstlisting}[language=verilog]
+	assign load_op = inst_ld_w;
+	\end{lstlisting}
+
+	\paragraph{归纳总结}\hfill
+	
+	该错误与错误1有类似之处。除错误1中给出的方式外，另一种或可行的方式是编写代码时每声明一个或一组信号或寄存器时，随即为其编写\texttt{assign}语句或\texttt{always}块完成逻辑设计。即便当下无法完成该处设计，在开发过程中也应当留下\texttt{TODO: xxxxx}之类的注释提示后续修订代码时该处逻辑未完成。
+	
+	\subsubsection{错误\textbf{4：}ALU端口}
+	
+	\paragraph{错误现象}\hfill
+	
+	如图所示，0x1c000000处指令写回数据错误。
+	
+	\begin{figure}[!h]
+		\centering
+		\includegraphics*[width=0.95\textwidth]{03-dbg-04.jpg}
+		\caption{\texttt{addi.w}指令写回数据错误}
+	\end{figure}
+
+	\paragraph{分析定位过程}\hfill
+	
+	查阅反汇编文件可知该指令为\texttt{addi.w}，考察其功能实现相关逻辑可注意到如下现象，即EXE级ALU操作数生成正确，但ALU中操作数错误。
+	\begin{figure}[!h]
+		\centering
+		\includegraphics*[width=0.95\textwidth]{03-dbg-04-01.jpg}
+		\caption{ALU模块内外数据不一}
+	\end{figure}
+
+	\paragraph{错误原因}\hfill
+	
+	EXE级实例化ALU模块时，端口连线在两个操作数端口均连上信号\texttt{es\_alu\_src2}。
+	
+	\paragraph{修正效果}\hfill
+	
+	修订模块例化如下即可解决该问题。
+	
+	\begin{lstlisting}[language=verilog]
+	alu u_alu(
+		.alu_op     (es_alu_op    ),
+		.alu_src1   (es_alu_src1  ),
+		.alu_src2   (es_alu_src2  ),
+		.alu_result (es_alu_result)
+	);
+	\end{lstlisting}
+
+	\paragraph{归纳总结}\hfill
+	
+	该类错误通常来自笔误，但在模块内外信号名已有如此良好对应关系的情况下出现这种错误难免有刻意之嫌。
+	
+	\subsubsection{错误\textbf{5：}控制相关}
+	
+	\paragraph{错误现象}\hfill
+	
+	如图所示，PC在处理0x1c00070c处指令后并未顺序执行，而是跳转到0x1c000388处执行。
+	
+	\begin{figure}[!h]
+		\centering
+		\includegraphics*[width=0.95\textwidth]{03-dbg-05.jpg}
+		\caption{PC未正确执行}
+	\end{figure}
+
+	\paragraph{分析定位过程}\hfill
+	
+	查阅反汇编文件可知{0x1c00070c}与{0x1c000388}分别为前后两条绝对跳转指令\texttt{bl}与\texttt{b}的跳转目标，可以认识到0x1c00070c被取指时\texttt{b}已进入译码级，显然这是不该发生的。
+	
+	\paragraph{错误原因}\hfill
+	
+	此处的错误来自于错误1的修订方案。错误1的临时修正方式仅能使流水线流起来，但是对于流水线CPU控制相关的要求却不能满足。时序上产生\texttt{br\_taken}信号时，跳转指令的下一条指令已经被取指，下一拍取到的才是正确的跳转目标，但下一拍错误的指令已经进入ID，进而引发后续错误。
+	
+	\paragraph{修正效果}\hfill
+	
+	阅读实验讲义4.5.2小节，将\texttt{ds\_valid}逻辑修改如下：
+	\begin{lstlisting}[language=verilog]
+	always @(posedge clk) begin
+		if (reset) begin
+			ds_valid <= 1'b0;
+		end else if (br_taken) begin
+			ds_valid <= 1'b0;
+		end else if (ds_allowin) begin
+			ds_valid <= fs_to_ds_valid;
+		end
+	end
+	\end{lstlisting}
+
+	在\texttt{br\_taken}拉高时阻塞一拍，避免跳转指令的下一条指令（此处即为错误指令）进入ID级。至此，由\texttt{ds\_valid}引起的流水线逻辑乃至控制相关的一系列问题得以解决。
+	
+	\paragraph{归纳总结}\hfill
+	
+	该错误来自设计时对时序关系考虑的不足。解决方法唯有在编写代码前的设计阶段对各部件、各种情景下的时序关系有充分的认识，基于此给出正确的设计思路然后再编写代码。
+	
+	\subsubsection{错误\textbf{6：}移位指令功能实现}
+	
+	\paragraph{错误现象}\hfill
+	
+	类似错误4，左移指令\texttt{slli.w}写回数据错误。
+	
+	\paragraph{分析定位过程}\hfill
+	
+	根据指令功能考察相关逻辑注意到如下现象，即ALU运算左移指令出错。
+	
+	\begin{figure}[!h]
+		\centering
+		\includegraphics*[width=0.95\textwidth]{03-dbg-06-02.jpg}
+		\caption{左移实现出错}
+	\end{figure}
+
+	\paragraph{错误原因}\hfill
+	
+	ALU实现中左移运算逻辑中两操作数与指令含义相反，同时注意到其下两行右移部分的实现有类似问题与位宽问题，此处一并修正\footnote{实际实验过程中通过后续行为仿真波形注意到右移的错误，但这两处与已介绍的错误有高度类似，故而此处一并修改，下文不再赘述}。
+	
+	\paragraph{修正效果}\hfill
+	
+	修改该部分代码如下即可解决移位指令相关问题。
+	\begin{lstlisting}[language=verilog]
+	// SLL result
+	assign sll_result = alu_src1 << alu_src2[4:0];   //rj << i5
+	
+	// SRL, SRA result
+	assign sr64_result = {{32{op_sra & alu_src1[31]}}, alu_src1[31:0]} >> alu_src2[4:0]; //rj >> i5
+	
+	assign sr_result   = sr64_result[31:0];
+	\end{lstlisting}
+
+	\paragraph{归纳总结}\hfill
+	
+	该问题来自于对指令功能的不熟悉，虽然仍有刻意之嫌，但该错误提醒着我在后续实验中为CPU添加对更多指令的支持时一定要把握好指令的具体功能要求。
+	
+	\subsubsection{错误\textbf{7：}波形停止}
+	
+	\paragraph{错误现象}\hfill
+	
+	修订了上述错误后重启仿真，波形停止于717985\,ns，同时Vivado仿真部分进程卡死（体现在\texttt{xsimk.exe}进程即便在退出Vivado后仍在允许且占用大量资源）。
+	
+	\paragraph{分析定位过程}\hfill
+	
+	根据lab2的经验，该类问题主要来自于组合逻辑环。除了讲义与lab2中观察手动结束仿真的方式外，我实际debug过程中借助了此前提过的verilator作为verilog linter时提供的丰富warning信息定位错误。
+	
+	\paragraph{错误原因}\hfill
+	
+	错误来自于ALU中\texttt{or\_result}的生成逻辑中或上了\texttt{alu\_result}，而\texttt{alu\_result}的生成为在包含\texttt{or\_result}的一众运算结果中的选择逻辑。
+	
+	\paragraph{修正效果}\hfill
+	
+	将\texttt{or\_result}的逻辑修改如下，至此已能通过lab3仿真与上板测试。
+	
+	\begin{lstlisting}[language=verilog]
+	assign or_result  = alu_src1 | alu_src2;
+	\end{lstlisting}
+
+	\paragraph{归纳总结}\hfill
+	
+	组合逻辑环的产生同lab2中总结的一样，来自于编写代码时对目标设计的认识不足，信号间逻辑关系把握不够。
+	
+	\subsubsection{错误\textbf{8：}decoder实现问题}
+	
+	该错误不影响通过当前指令要求下的测试，我是在实验过程中浏览实验框架与一些实现时注意到这一错误。
+	
+	实验框架给出的\texttt{tools.v}中6 $ \to $ 64位译码器的实现中循环条件为$ i < 63 $，缺失了输入为全1，输出为最高位拉高，低位全零的情形。
+	
+	修改后的\texttt{generate for}部分如下：
+	\begin{lstlisting}[language=verilog]
+	genvar i;
+	generate for (i=0; i<64; i=i+1) begin : gen_for_dec_6_64
+		assign out[i] = (in == i);
+	end endgenerate
+	\end{lstlisting}
+
+	\subsubsection{错误\textbf{9：}store指令写数据错误}
+	
+	\paragraph{错误现象}\hfill
+	
+	该错误来自lab4，行为仿真过程中控制台报错但并未停止仿真。
+	
+	\paragraph{分析定位过程}\hfill
+	
+	认识到该错误来源的过程较为复杂，需要从激励测试文件\texttt{mycpu\_tb.v}出发，简要阅读以\texttt{soc\_lite\_top.v}为顶层的数个源文件。结合错误发生时间点各流水级中停留的指令，最终认识到错误来自store指令\texttt{st.w}写数据错误。
+	
+	\paragraph{错误原因}\hfill
+	
+	根据讲义内容，最大程度降低阻塞带来的性能损失需要判断指令码中寄存器堆读地址字段冲突的指令是否将引发冲突的字段当作源操作数。故而我引入了\texttt{src\_reg1}、\texttt{src\_reg2}信号来判断当前ID级的指令是否将rj、rk/rd寄存器数据作为源操作数，进而筛除伪相关。然而初次编写时\texttt{src\_reg2}中遗漏了\texttt{st.w}指令。进而导致在\texttt{st.w}与上一条指令在rd寄存器上发生数据冲突时未进行阻塞，导致写数据错误。
+	
+	\paragraph{修正效果}\hfill
+	
+	在\texttt{src\_reg2}信号的生成逻辑中增加与\texttt{inst\_st\_w}取或的部分，解决上述问题通过lab4仿真与上板测试。
+	
+	\paragraph{归纳总结}\hfill
+	
+	该问题与错误6类似，都是来源于对指令功能的把握不熟悉，同样警示着我在后续实验中务必在设计前充分考虑指令功能。
+	
+	\section{实验总结}
+	\subsection{阻塞与前递的性能}
+	
+	lab4我最终的仿真时长为1322735\,ns，lab5引入前递技术后则为604915\,ns，前递技术带来的加速比为
+	\[\left(\frac{604915}{1322735}\right)^{-1}=2.187\]
+	
+	结合理论课的知识与练习，可以认识到完全用阻塞解决数据相关的流水线效率极低，乃至接近多周期处理器，引入前递技术可以大大减少所需的时钟周期数。但正如实验讲义所述，原本提高了主频的流水级切分工作在当前的前递设计下失去了部分效果，自ALU入口出发至最终的两个源操作数构成的长组合逻辑拖累了主频的提升。处理器设计中提升性能的技术还有很多，课程考虑到教学目标浅尝辄止，但我们仍可从实验过程中一窥理论课讲授的那些技术的意义所在。
+	
+	\subsection{一些与实验不太有关系的内容}
+	
+	虽然在错误2与错误7中我均提到我借助verilator提供的仿真信息轻松地定位bug，但verilator也并非十全十美的linter工具，具体有以下三个例子用于说明其不足。
+	
+	(1)我配置verilator作为VSCode中的verilog linter始自计算机组成原理实验课程，在该课程的选做实验中我曾选做过Cache设计实验，当时课程对Cache访问地址的三个字段示例为Tag、Set与Offset，沿用这一命名进行设计时verilator对set作为端口名时给出warning信息：Symbol matches C++ common word: `set'。
+	
+	(2) verilator对文件名与模块名不匹配的情况支持并不友好。在本课程给出的实验框架中\texttt{tools.v}下设计了四个\texttt{decoder}模块，然而在\texttt{ID\_stage.v}中例化译码器处verilator未能找到相应的\texttt{decoder}模块，给出error信息。
+	
+	(3)即使是在错误7中发现组合逻辑环的功能也并非那么准确。在为体系结构理论课作业编写基于Booth两位乘与华莱士树的32位补码乘法器时，我注意到对于如下情形verilator仍会给出可能存在组合逻辑环的warning信息。
+	\begin{lstlisting}[language=verilog]
+	wire [`WD - 1:0] sigs [`NUM - 1:0];
+		
+	module_name m1(.in(other_sig), .out(sigs[0]));
+	module_name m2(.in(sigs[0]  ), .out(sigs[1]));
+	\end{lstlisting}
+	
+	当然，上述情景用于最终验证的FPGA开发工具都是Xilinx Vivado，我并未尝试利用verilator进行仿真检验上述不足是否会影响仿真验证的正常进行。
+	
+	基于这些经验，我认识到linter始终是代码开发时的辅助工具，难有工具能在代码编写阶段提供尽善尽美的查错功能，Vivado自带的xvlog作为linter时给出的信息丰富程度上远不如verilator。事在人为，减少verilog代码中低级错误、设计错误的最终方式始终是开发者对开发目标具有充分且冷静的认识，在编码过程中慎之又慎。当然，不排除大佬的解决方式是自己造个符合自己口味且足够强大的轮子作为linter使用（笑）。
+	
+\end{document}

@@ -1,0 +1,348 @@
+\documentclass[tikz]{standalone}
+%\usepackage[dvipsnames]{xcolor}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{setspace}
+\usepackage{xeCJK}
+\usepackage{ulem}
+\usepackage{pstricks}
+\usepackage{pstricks-add}
+\usepackage{bm}
+\usepackage{mathtools}
+\usepackage{breqn}
+\usepackage{mathrsfs}
+\usepackage{esint}
+\usepackage{textcomp}
+\usepackage{upgreek}
+\usepackage{pifont}
+\usepackage{tikz}
+\usepackage{circuitikz}
+\usepackage{caption}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{pgfplots}
+\usepackage{multirow}
+\usepackage{pgfplotstable}
+\usepackage{mhchem}
+
+\usetikzlibrary{math}
+\usetikzlibrary{shapes.misc}
+
+
+\setCJKfamilyfont{boldsong}[AutoFakeBold = {2.17}]{SimSun}
+\newcommand*{\boldsong}{\CJKfamily{boldsong}}
+%\DeclareMathOperator\dif{d\!}
+\newcommand*{\me}{\mathop{}\!\mathrm{e}}
+\newcommand*{\mpar}{\mathop{}\!\partial}
+\newcommand*{\dif}{\mathop{}\!\mathrm{d}}
+\newcommand*{\tab}{\indent}
+\newcommand*{\mcelsius}{\mathop{}\!{^\circ}\mathrm{C}}
+\renewcommand*{\Im}{\mathrm{Im}\,}
+
+\begin{document}
+	\begin{tikzpicture}
+		\draw (0,0) -- (0.75,1.5) -- (2.25,1.5) -- (3,0) -- (1.8,0) -- (1.5,0.6) -- (1.2,0)--(0,0)--cycle;
+		
+		\node at(1.5,1) {+};
+		
+		\draw[->] (3, -0.5) node[right]{4} -| (2.4, 0);
+		
+		\draw (0,3) -- (4.5,3) -- (4,4) -- (0.5, 4) -- (0,3)--cycle;
+		\node at(2.25, 3.5) {MUX};
+		\draw[->] (1.5, 1.5) -- (1.5, 3);
+		
+		\draw (-2, -2) rectangle (1.6, -1);
+		\draw (-4.4, -2) rectangle (-2, -1);
+		\node at(-0.2, -1.5) {PC};
+		\node at(-3.2, -1.5) {IF-valid};
+		
+		\draw[->] (0.6,-1) -- (0.6,0);
+		
+		\draw (-0.5, 5) rectangle (5, 6);
+		\node at(2.25, 5.5) {Inst SRAM};
+		
+		\draw[->] (2.25, 4) -- (2.25, 5);
+		\draw[->] (2.25,4.5) -| (-1, -1);
+		\filldraw (2.25, 4.5) circle (0.05);
+		
+		\draw (-4.4, 7) rectangle (-2, 8);
+		\draw (-2, 7) rectangle (5, 8);
+		\node at(-3.2, 7.5) {ID-valid};
+		\node at(1.5, 7.5) {Instruction};
+		
+		\draw[->] (2.25, 6) -- (2.25, 7);
+		\draw[->] (-2.8, 7) -- (-2.8, -1);
+		\draw[->] (-3.6, -1) -- (-3.6, 7);
+		
+		\draw (-2, 9) rectangle (1, 10);
+		
+		\node at(-0.5, 9.5) {Decoder};
+		
+		\draw (-2, 11) rectangle (1, 12);
+		\node at(-0.5, 11.5) {寄存器堆};
+		
+		\draw[->] (-0.5, 8) -- (-0.5, 9);
+		\draw[->] (-0.5, 10) -- (-0.5, 11);
+		
+		\draw (-2, 13) rectangle (5, 14);
+		\node at(1.5, 13.5) {寄存器相关判断逻辑};
+		
+		\draw (-2, 13.5) -- (-3.6, 13.5);
+		
+		\draw (2, 10) rectangle (6, 11);
+		\node at(4, 10.5) {跳转判断与目的计算};
+		
+		\draw[->] (-0.5, 12) -- (-0.5, 13);
+		\draw[->] (1, 9.5) -| (3, 10);
+		\draw[->] (1.5, 9.5) -- (1.5, 13);
+		\filldraw (1.5, 9.5) circle (0.05);
+		\draw[->] (3.5, 13) -- (3.5, 11);
+		
+		\draw[->] (5.5, 10) |- (4.25, 3.5);
+		\draw[->] (5.5, 3.5) |- (3, 2) -- (3,3);
+		\filldraw (5.5, 3.5) circle (0.05);
+		
+		\draw[->] (5.5, 8.5) -- (-4, 8.5) -- (-4, 8);
+		\filldraw (5.5, 8.5) circle (0.05);
+		
+		\draw (-4.4, 15) rectangle (-2, 16);
+		\draw (-2, 15) rectangle (5, 16);
+		\node at(-3.2, 15.5) {EXE-valid};
+		\node at(1.5, 15.5) {操作数与控制信号};
+		
+		\draw[->] (1.5, 14) -- (1.5, 15);
+		\draw[->] (-2.8, 15) -- (-2.8, 8);
+		\draw[->] (-3.6, 8) -- (-3.6, 15);
+		
+		\draw (-1, 17) rectangle (4, 18);
+		\node at(1.5, 17.5) {操作数选择逻辑};
+		
+		\draw[->] (1.5, 16) -- (1.5, 17);
+		
+		\draw (0,0+18+1) -- (0.75,1.5+18+1) -- (2.25,1.5+18+1) -- (3,0+18+1) -- (1.8,0+18+1) -- (1.5,0.6+18+1) -- (1.2,0+18+1)--(0,0+18+1)--cycle;
+		
+		\node at(1.5,1+18+1) {ALU};
+		
+		\draw[->] (0.6, 18) -- (0.6, 19);
+		\draw[->] (2.4, 18) -- (2.4, 19);
+		\draw[->] (4.5, 16) |- (2.625, 0.75 + 19);
+		
+		\draw (2, 21) rectangle (6, 22);
+		\node at(4, 21.5) {Data SRAM};
+		
+		\draw (-4.4, 23) rectangle (-2, 24);
+		\draw (-2, 23) rectangle (5, 24);
+		\node at(-3.2, 23.5) {MEM-valid};
+		\node at(1.5, 23.5) {运算结果与控制信号};
+		
+		\draw[->] (-2.8, 23) -- (-2.8, 16);
+		\draw[->] (-3.6, 16) -- (-3.6, 23);
+		
+		\draw[->] (-1.5, 16) -- (-1.5, 23);
+		\draw[->] (-1.5, 21.5) -- (2, 21.5);
+		\filldraw (-1.5, 21.5) circle (0.05);
+		
+		\draw[->] (1.5, 20.5) -- (1.5, 23);
+		\draw[->] (1.5, 20.75) -| (4, 21);
+		\filldraw (1.5, 20.75) circle (0.05);
+		\filldraw (4,20.75) circle (0.05);
+		\draw[->] (4,20.75) -| (5.5, 13.25) -- (5, 13.25);
+		
+		\draw (-1, 25) rectangle (4, 26);
+		\node at(1.5, 25.5) {写回结果选择逻辑};
+		
+		\draw[->] (1.5, 24) -- (1.5, 25);
+		\draw[->] (5.5, 22) |- (4, 25.5);
+		
+		\draw (-4.4, 27) rectangle (-2, 28);
+		\draw (-2, 27) rectangle (5, 28);
+		\node at(-3.2, 27.5) {WB-valid};
+		\node at(1.5, 27.5) {寄存器堆写信号};
+		
+		\draw[->] (-1.5, 24) -- (-1.5, 27);
+		\draw[->] (1.5, 26) -- (1.5, 27);
+		\filldraw (1.5, 26.5) circle (0.05);
+		\draw[->] (1.5, 26.5) -| (6.5, 13.5) -- (5, 13.5);
+		
+		\draw[->] (-2.8, 27) -- (-2.8, 24);
+		\draw[->] (-3.6, 24) -- (-3.6, 27);
+		
+		\draw[->] (-3.1, 28) |- (7, 28.5) |- (5, 13.75);
+		\draw (1.5, 28) -- (1.5, 28.5);
+		\filldraw (1.5, 28.5) circle (0.05);
+		
+		\filldraw (7, 13.75) circle (0.05);
+		\draw[->] (7, 13.75) |- (1, 11.5);
+		
+%		\draw[->] (-1, 5) |- (0.6, -1) -- (0.6, 0);
+		
+%		\draw (-2, 7) rectangle (4.5, 8);
+		
+%		\draw (1.5, 3) -- (4, 3) -- (3.5, 4) -- (-0.5, 4) -- (-1,3) -- (1.5,3) -- cycle;		
+%		\node at(1.5, 3.5) {MUX};
+%		
+%		
+%		\draw[->] (1.5, 1.5) -- (1.5, 3);
+%		
+%		\draw (-4.5,5) rectangle (-3,6);
+%		\draw (-1.5,5) rectangle (4.5,6);
+%		\draw[red] (-3,5) rectangle (-1.5,6);
+%		\node at(-3.75,5.5) {有效0};
+%		\node[red] at(-2.25,5.5) {异常0};
+%		\node at(1.5,5.5) {PC};
+%		
+%		\draw[->] (1.5,4) |- (2.5, 4.5) -- (2.5,5); 
+%		\draw[->] (0.5,5) |- (-3,4.5) -- (-3, -1) -| (0.65,0);
+%		
+%		\draw[->] (1.5,6) -- (1.5,7);
+%		
+%		\draw (-1.5,7) rectangle (4.5,8);
+%		\node at(1.5, 7.5) {指令存储器};
+%		
+%		\draw[->] (1.5,8) -- (1.5, 9);
+%		
+%		\draw (-4.5,9) rectangle (-3,10);
+%		\draw (-1.5,9) rectangle (4.5,10);
+%		\draw[red] (-3,9) rectangle (-1.5,10);
+%		\node at(-3.75,9.5) {有效1};
+%		\node[red] at(-2.25,9.5) {异常1};
+%		\node at(1.5,9.5) {R1(指令码)};
+%		
+%		\draw[->,red] (-2.25, 10) |- (5.5,10.5) |- (5.5, 2.5) -| (13.25, 4);
+%		
+%		\draw[<-,red] (-2.25,9) -- (-2.25,6);
+%		\draw[->] (-3.75,9) -- (-3.75,6);
+%		
+%		\draw (-1.5,11) rectangle (4.5, 12);
+%		\node at(1.5, 11.5) {译码结果};
+%		
+%		\draw[->] (-1.5,11.5) -| (-5.5, 5.5) -- (-4.5, 5.5);
+%		
+%		\draw[->] (1.5,10)--(1.5,11);
+%		
+%		\draw (1.5,13) rectangle (7.5,14);
+%		
+%		\draw[->] (1.5,12) |- (6,12.5) -- (6,13);
+%		\filldraw (6,12.5) circle (0.05);
+%		\draw[->] (6,12.5) |- (14,0.5);
+%		\node at(4.5,13.5) {寄存器相关逻辑判断};
+%		
+%		\draw[->] (1.5,13.5) -| (-5, 9.5) -- (-4.5, 9.5);
+%		
+%		\draw (14,0) rectangle (20,1);
+%		\node at(17,0.5) {通用寄存器};
+%		
+%%		\draw (1.5, 3) -- (4, 3) -- (3.5, 4) -- (-0.5, 4) -- (-1,3) -- (1.5,3) -- cycle;		
+%%		\node at(1.5, 3.5) {MUX};
+%
+%		\draw (14.5, 2) -- (15, 3) -- (16, 3) -- (16.5, 2) -- (14.5, 2) -- cycle;
+%		\node at(15.5, 2.5) {MUX};
+%		
+%		\draw[->] (15, 1) -- (15, 2);
+%		\draw[->] (15.5, 3) -- (15.5, 4);
+%		
+%		\draw (14.5+3, 2) -- (15+3, 3) -- (16+3, 3) -- (16.5+3, 2) -- (14.5+3, 2) -- cycle;
+%		\node at(15.5+3, 2.5) {MUX};
+%		
+%		\draw[->] (15+3, 1) -- (15+3, 2);
+%		\draw[->] (15.5+3, 3) -- (15.5+3, 4);
+%		
+%		\draw [->] (11,0.5) -- (11,4);
+%		\filldraw (11,0.5) circle (0.05);
+%		
+%		\draw (14,4) rectangle (20,5);
+%		\draw (9.5,4) rectangle (12.5,5);
+%		\draw[red] (12.5,4) rectangle (14,5);
+%		\node at(11,4.5) {控制+有效2};
+%		\node[red] at(13.25,4.5) {异常2};
+%		\node at(17,4.5) {R2(运算值)};
+%		
+%		\draw[->] (11,5) -- (11,8);
+%		\draw[->] (11,6.5) -- (15.875,6.5);
+%		\filldraw (11,6.5) circle (0.05);
+%		\draw[->] (11,6.5) -| (6.4, 13);
+%		\filldraw (6.4,6.5) circle (0.05);
+%		
+%		\draw[->] (6.4,6.5) |- (4.5,5.5);
+%		\filldraw (6.4,5.5) circle (0.05);
+%		\draw[->] (6.4,5.5) |- (3.75,3.5);
+%		
+%%		\draw (0,0) -- (0.75,1.5) -- (2.25,1.5) -- (3,0) -- (1.8,0) -- (1.5,0.6) -- (1.2,0)--(0,0)--cycle;
+%%		
+%%		\node at(1.5,1) {+};
+%
+%		\draw[->] (16.1, 5) -- (16.1, 5.75);
+%		\draw[->] (17.9, 5) -- (17.9, 5.75);
+%
+%		\draw (15.5, 5.75) -- (16.25, 7.25) -- (17.75, 7.25) -- (18.5,5.75) -- (17.3, 5.75) -- (17, 6.35) -- (16.7, 5.75) -- (15.5, 5.75) -- cycle;
+%		\node at(17, 6.75) {ALU};
+%		
+%		\draw[->] (17,7.25) -- (17,8);
+%		\filldraw (17,7.625) circle (0.05);
+%		\draw[->] (17,7.625) -| (20.5, -1) -| (3.5, 3);
+%		\draw (20, 0.5) -- (20.5, 0.5);
+%		\filldraw (20.5, 7.625) circle (0.05);
+%		
+%		\draw[->,red] (13.25, 5) -- (13.25, 8);
+%		
+%		\draw (14,8) rectangle (20,9);
+%		\draw (9.5,8) rectangle (12.5,9);
+%		\draw[red] (12.5,8) rectangle (14,9);
+%		\node at(11,8.5) {控制+有效3};
+%		\node[red] at(13.25, 8.5) {异常3};
+%		\node at(17,8.5) {R3(运算结果)};
+%		
+%		\draw[->] (17, 9) -- (17, 10);
+%		
+%		\draw[->] (11, 9) -- (11, 12);
+%		\draw[->] (11, 10.5) -- (14, 10.5);
+%		\filldraw (11, 10.5) circle (0.05);
+%		\draw[->] (11, 10.5) -| (6.7, 13);
+%		
+%		\draw (14,10) rectangle (20, 11);
+%		\node at(17,10.5) {数据存储器};
+%		
+%		\draw[->] (17, 11) -- (17, 12);
+%		
+%		\draw[->,red] (13.25, 9) -- (13.25, 12);
+%				
+%		\draw (14, 12) rectangle (20, 13);
+%		\draw (9.5, 12) rectangle (12.5, 13);
+%		\draw[red] (12.5, 12) rectangle (14, 13);
+%		\node at(11, 12.5) {控制+有效4};
+%		\node[red] at(13.25, 12.5) {异常4};
+%		\node at(17, 12.5) {R4(最终结果)};
+%		
+%		\draw[->] (9.5, 12.5) -| (7, 13);
+%		\draw[->] (11, 13) |- (23.5, 13.5) |- (17,-0.5) -- (17,0);
+%		\draw (17, 13) -- (17, 13.5);
+%		\draw[->] (22.5, 13.5) -- (22.5, 7);
+%		\filldraw (17, 13.5) circle (0.05);
+%		\filldraw (22.5, 13.5) circle (0.05);
+%		
+%		\draw (21, 6) rectangle (23, 7);
+%		\node at(22, 6.5) {前递机制};
+%		\draw[->] (20.5, 7.625) -| (21.5, 7);
+%		\draw[->] (17, 11.5) -| (22, 7);
+%		\filldraw (17, 11.5) circle (0.05);
+%		\draw[->] (22, 6) |- (16, 1.5) -- (16, 2);
+%		\filldraw (19, 1.5) circle (0.05);
+%		\draw[->] (19, 1.5) -- (19, 2);
+%		\draw[->] (4.5, 14) |- (24, 14.5) |- (23, 6.5);
+%		
+%		\draw[red] (8,15) rectangle (11,16);
+%		\draw[red] (11,15) rectangle (15,16);
+%		\draw[red] (15,15) rectangle (20,16);
+%		\node[red] at(9.5,15.5) {状态寄存器};
+%		\node[red] at(13,15.5)  {异常处理程序入口地址};
+%		\node[red] at(17.5,15.5){当前PC与其他状态信息};
+%		
+%		\draw[red,->] (13.25, 13) |- (9.5, 14) -- (9.5, 15);
+%		\draw[red,->] (13.25, 14) -| (17.5, 15);
+%		\draw[red,->] (13, 14) -- (13, 15);
+%		\filldraw[red] (13.25,14) circle (0.05);
+%		\filldraw[red] (13,14) circle (0.05);
+%		
+%		\draw[red,->] (13,16) |- (-6, 16.5) |- (-0.5, 2) -- (-0.5, 3);
+	\end{tikzpicture}
+\end{document}
