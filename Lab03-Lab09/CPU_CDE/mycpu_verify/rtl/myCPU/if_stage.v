@@ -26,9 +26,9 @@ wire        to_fs_valid;
 wire [31:0] seq_pc;
 wire [31:0] nextpc;
 
-wire         br_taken;
+wire         br_cancel;
 wire [ 31:0] br_target;
-assign {br_taken,br_target} = br_bus;
+assign {br_cancel,br_target} = br_bus;
 
 wire [31:0] fs_inst;
 reg  [31:0] fs_pc;
@@ -37,8 +37,8 @@ assign fs_to_ds_bus = {fs_inst ,
 
 // pre-IF stage
 assign to_fs_valid  = ~reset;
-assign seq_pc       = fs_pc + 3'h4;
-assign nextpc       = br_taken ? br_target : seq_pc; 
+assign seq_pc       = fs_pc + 32'h4;
+assign nextpc       = br_cancel ? br_target : seq_pc; 
 
 // IF stage
 assign fs_ready_go    = 1'b1;
@@ -50,6 +50,9 @@ always @(posedge clk) begin
     end
     else if (fs_allowin) begin
         fs_valid <= to_fs_valid;
+    /* HERE br_taken cancel */
+    end else if(br_cancel) begin
+        fs_valid <= 1'b0;
     end
 
     if (reset) begin

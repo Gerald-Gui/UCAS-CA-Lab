@@ -17,9 +17,11 @@ module exe_stage(
     output [ 3:0] data_sram_wen  ,
     output [31:0] data_sram_addr ,
     output [31:0] data_sram_wdata,
-
-    // blk bus to id
-    output [`ES_FWD_BLK_BUS_WD-1:0] es_fwd_blk_bus
+    //hazard: to ds 
+    output [`LW_HAZARD_BACK_WD -1:0] es_back_ds_hzd_bus,
+    //data forward: to ds and from ms
+    output [`ES_FORWARD_DS_DATA_WD -1:0] es_forward_ds_data,
+    input  [`MS_FORWARD_ES_DATA_WD -1:0] ms_forward_es_data
 );
 
 reg         es_valid      ;
@@ -88,7 +90,7 @@ assign es_alu_src2 = es_src2_is_imm ? es_imm :
 
 alu u_alu(
     .alu_op     (es_alu_op    ),
-    .alu_src1   (es_alu_src1  ),
+    .alu_src1   (es_alu_src1  ),    /* HERE: alu_src2 */
     .alu_src2   (es_alu_src2  ),
     .alu_result (es_alu_result)
     );
@@ -98,6 +100,8 @@ assign data_sram_wen   = es_mem_we ? 4'hf : 4'h0;
 assign data_sram_addr  = es_alu_result;
 assign data_sram_wdata = es_rkd_value;
 
-assign es_fwd_blk_bus = {es_gr_we & es_valid, es_res_from_mem & es_valid, es_dest, es_alu_result};
+assign es_back_ds_hzd_bus = {es_res_from_mem,es_gr_we && es_valid,es_dest};
+
+assign es_forward_ds_data = {es_alu_result,ms_forward_es_data};
 
 endmodule

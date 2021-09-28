@@ -24,11 +24,13 @@ reg [3:0] prev_data;
 //new value
 always @(posedge clk)
 begin
+    /* HERE: enable this sentence */
     show_data   <= ~switch;
 end
 
 always @(posedge clk)
 begin
+    /* HERE: non-block transmission */
     show_data_r <= show_data;
 end
 //previous value
@@ -41,6 +43,8 @@ begin
     else if(show_data_r != show_data)
     begin
         prev_data <= show_data_r;
+    end else begin
+        prev_data <= prev_data;
     end
 end
 
@@ -53,6 +57,7 @@ show_num u_show_num(
         .resetn     (resetn   ),
         
         .show_data  (show_data),
+        /* HERE: type error */
         .num_csn    (num_csn  ),
         .num_a_g    (num_a_g  )
 );
@@ -77,7 +82,8 @@ always @(posedge clk)
 begin
     if ( !resetn )
     begin
-        num_a_g <= 7'b0000000;
+        /* HERE: show 0 at first */
+        num_a_g <= 7'b1111110;
     end
     else
     begin
@@ -85,7 +91,10 @@ begin
     end
 end
 
-//keep unchange if show_dtaa>=10
+//keep unchange if show_data>=10
+wire [6:0] keep_a_g;
+/* HERE: keep_a_g only store present value of a_g */
+assign     keep_a_g = num_a_g;
 
 assign nxt_a_g = show_data==4'd0 ? 7'b1111110 :   //0
                  show_data==4'd1 ? 7'b0110000 :   //1
@@ -93,9 +102,11 @@ assign nxt_a_g = show_data==4'd0 ? 7'b1111110 :   //0
                  show_data==4'd3 ? 7'b1111001 :   //3
                  show_data==4'd4 ? 7'b0110011 :   //4
                  show_data==4'd5 ? 7'b1011011 :   //5
+                 /* HERE: 6 was lost */
+                 show_data==4'd6 ? 7'b1011111 :   //6
                  show_data==4'd7 ? 7'b1110000 :   //7
                  show_data==4'd8 ? 7'b1111111 :   //8
                  show_data==4'd9 ? 7'b1111011 :   //9
-                                   num_a_g;
+                                   keep_a_g   ;
 endmodule
 //----------------------------{digital number}end------------------------//

@@ -71,17 +71,21 @@ assign sltu_result[0]    = ~adder_cout;
 
 // bitwise operation
 assign and_result = alu_src1 & alu_src2;
+/* HERE: or calculation error: |alu_result */
 assign or_result  = alu_src1 | alu_src2;
 assign nor_result = ~or_result;
 assign xor_result = alu_src1 ^ alu_src2;
 assign lui_result = {alu_src2[14:0], alu_src2[19:15], 12'b0};
 
 // SLL result
+/* HERE 1,2 were opsite */
 assign sll_result = alu_src1 << alu_src2[4:0];   //rj << i5
 
 // SRL, SRA result
+/* HERE 1,2 were opsite */
 assign sr64_result = {{32{op_sra & alu_src1[31]}}, alu_src1[31:0]} >> alu_src2[4:0]; //rj >> i5
 
+/* HERE: port width error:30 */
 assign sr_result   = sr64_result[31:0];
 
 // final result mux

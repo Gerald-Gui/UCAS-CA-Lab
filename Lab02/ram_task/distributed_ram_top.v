@@ -1,4 +1,5 @@
-module ram_top (
+/*
+module dist_ram_top (
     input         clk      ,
     input  [15:0] ram_addr ,
     input  [31:0] ram_wdata,
@@ -15,3 +16,4 @@ distributed_ram distributed_ram(
 );
 
 endmodule
+*/

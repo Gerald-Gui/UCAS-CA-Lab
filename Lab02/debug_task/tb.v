@@ -3,6 +3,13 @@ reg        clk   ;
 reg        resetn;     
 reg [3 :0] switch;    //input
 
+/* HERE: added */
+/*
+wire [7:0] num_csn;
+wire [6:0] num_a_g;
+wire [3:0] led;
+*/
+
 initial
 begin
     #100;
@@ -37,7 +44,8 @@ show_sw  u_show_sw(
     .resetn (resetn ),     
 
     .switch (switch ),    //input
-
+    
+    /* HERE complemented */
     .num_csn(),   //new value   
     .num_a_g(),      
 

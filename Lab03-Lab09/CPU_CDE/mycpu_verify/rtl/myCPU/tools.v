@@ -43,6 +43,7 @@ module decoder_6_64(
 );
 
 genvar i;
+/* HERE i<63 */
 generate for (i=0; i<64; i=i+1) begin : gen_for_dec_6_64
     assign out[i] = (in == i);
 end endgenerate

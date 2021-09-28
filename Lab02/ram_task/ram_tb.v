@@ -7,15 +7,26 @@ reg         clk;
 reg         ram_wen;
 reg  [15:0] ram_addr;
 reg  [31:0] ram_wdata;
-wire [31:0] ram_rdata;
+wire [31:0] ram_rdata_blk;
+// wire [31:0] ram_rdata_dist;
 reg  [3 :0] task_phase;
 
-ram_top u_ram_top(
+/*
+dist_ram_top u_dist_ram_top(
     .clk      (clk       ),
     .ram_wen  (ram_wen   ),
     .ram_addr (ram_addr  ),
     .ram_wdata(ram_wdata ),
-    .ram_rdata(ram_rdata ) 
+    .ram_rdata(ram_rdata_dist ) 
+);
+*/
+
+blk_ram_top u_blk_ram_top(
+    .clk      (clk       ),
+    .ram_wen  (ram_wen   ),
+    .ram_addr (ram_addr  ),
+    .ram_wdata(ram_wdata ),
+    .ram_rdata(ram_rdata_blk ) 
 );
 
 //clk

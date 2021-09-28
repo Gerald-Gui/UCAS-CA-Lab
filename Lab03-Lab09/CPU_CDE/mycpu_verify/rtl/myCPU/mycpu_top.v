@@ -1,5 +1,4 @@
 `include "mycpu.h"
-
 module mycpu_top(
     input         clk,
     input         resetn,
@@ -38,9 +37,12 @@ wire [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus;
 wire [`MS_TO_WS_BUS_WD -1:0] ms_to_ws_bus;
 wire [`WS_TO_RF_BUS_WD -1:0] ws_to_rf_bus;
 wire [`BR_BUS_WD       -1:0] br_bus;
-
-wire [`ES_FWD_BLK_BUS_WD - 1:0] es_fwd_blk_bus;
-wire [`MS_FWD_BLK_BUS_WD - 1:0] ms_fwd_blk_bus;
+wire [`LW_HAZARD_BACK_WD -1:0] es_back_ds_hzd_bus;
+wire [`LW_HAZARD_BACK_WD -1:0] ms_back_ds_hzd_bus;
+wire [`HAZARD_BACK_WD -1:0] ws_back_ds_hzd_bus;
+wire [`ES_FORWARD_DS_DATA_WD -1:0] es_forward_ds_data;
+wire [`MS_FORWARD_ES_DATA_WD -1:0] ms_forward_es_data;
+wire [`WS_FORWARD_MS_DATA_WD -1:0] ws_forward_ms_data;
 
 // IF stage
 if_stage if_stage(
@@ -77,9 +79,12 @@ id_stage id_stage(
     .br_bus         (br_bus         ),
     //to rf: for write back
     .ws_to_rf_bus   (ws_to_rf_bus   ),
-
-    .es_fwd_blk_bus (es_fwd_blk_bus     ),
-    .ms_fwd_blk_bus (ms_fwd_blk_bus     )
+    //hazard: from es,ms,ws
+    .es_back_ds_hzd_bus  (es_back_ds_hzd_bus ),
+    .ms_back_ds_hzd_bus  (ms_back_ds_hzd_bus ),
+    .ws_back_ds_hzd_bus  (ws_back_ds_hzd_bus ),
+    //data forward: from es
+    .es_forward_ds_data  (es_forward_ds_data )
 );
 // EXE stage
 exe_stage exe_stage(
@@ -94,13 +99,16 @@ exe_stage exe_stage(
     //to ms
     .es_to_ms_valid (es_to_ms_valid ),
     .es_to_ms_bus   (es_to_ms_bus   ),
-    // data sram interface
+    //data sram interface
     .data_sram_en   (data_sram_en   ),
     .data_sram_wen  (data_sram_wen  ),
     .data_sram_addr (data_sram_addr ),
     .data_sram_wdata(data_sram_wdata),
-
-    .es_fwd_blk_bus (es_fwd_blk_bus)
+    //hazard: to ds 
+    .es_back_ds_hzd_bus  (es_back_ds_hzd_bus ),
+    //data forward: to ds and from ms
+    .es_forward_ds_data  (es_forward_ds_data),
+    .ms_forward_es_data  (ms_forward_es_data)
 );
 // MEM stage
 mem_stage mem_stage(
@@ -117,8 +125,11 @@ mem_stage mem_stage(
     .ms_to_ws_bus   (ms_to_ws_bus   ),
     //from data-sram
     .data_sram_rdata(data_sram_rdata),
-
-    .ms_fwd_blk_bus (ms_fwd_blk_bus)
+    //hazard: to ds
+    .ms_back_ds_hzd_bus (ms_back_ds_hzd_bus),
+    //data forward: to ms and from ws
+    .ms_forward_es_data  (ms_forward_es_data),
+    .ws_forward_ms_data  (ws_forward_ms_data)
 );
 // WB stage
 wb_stage wb_stage(
@@ -135,7 +146,11 @@ wb_stage wb_stage(
     .debug_wb_pc      (debug_wb_pc      ),
     .debug_wb_rf_wen  (debug_wb_rf_wen  ),
     .debug_wb_rf_wnum (debug_wb_rf_wnum ),
-    .debug_wb_rf_wdata(debug_wb_rf_wdata)
+    .debug_wb_rf_wdata(debug_wb_rf_wdata),
+    //hazard: to ds
+    .ws_back_ds_hzd_bus  (ws_back_ds_hzd_bus ),
+    //data forward: to ms
+    .ws_forward_ms_data  (ws_forward_ms_data)
 );
 
 endmodule

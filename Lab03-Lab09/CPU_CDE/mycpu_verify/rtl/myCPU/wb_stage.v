@@ -14,7 +14,11 @@ module wb_stage(
     output [31:0] debug_wb_pc     ,
     output [ 3:0] debug_wb_rf_wen ,
     output [ 4:0] debug_wb_rf_wnum,
-    output [31:0] debug_wb_rf_wdata
+    output [31:0] debug_wb_rf_wdata,
+    //hazard: to ds 
+    output [`HAZARD_BACK_WD -1:0] ws_back_ds_hzd_bus,
+    //data forward: to ms
+    output [`WS_FORWARD_MS_DATA_WD -1:0] ws_forward_ms_data
 );
 
 reg         ws_valid;
@@ -25,6 +29,7 @@ wire        ws_gr_we;
 wire [ 4:0] ws_dest;
 wire [31:0] ws_final_result;
 wire [31:0] ws_pc;
+
 assign {ws_gr_we       ,  //69:69
         ws_dest        ,  //68:64
         ws_final_result,  //63:32
@@ -63,5 +68,9 @@ assign debug_wb_pc       = ws_pc;
 assign debug_wb_rf_wen   = {4{rf_we}};
 assign debug_wb_rf_wnum  = ws_dest;
 assign debug_wb_rf_wdata = ws_final_result;
+
+assign ws_back_ds_hzd_bus = {ws_gr_we && ws_valid,ws_dest};
+
+assign ws_forward_ms_data = rf_wdata;
 
 endmodule

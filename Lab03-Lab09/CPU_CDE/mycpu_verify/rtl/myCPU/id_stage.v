@@ -16,10 +16,12 @@ module id_stage(
     output [`BR_BUS_WD       -1:0] br_bus        ,
     //to rf: for write back
     input  [`WS_TO_RF_BUS_WD -1:0] ws_to_rf_bus  ,
-
-    // blk signals from es, ms, ws
-    input  [`ES_FWD_BLK_BUS_WD-1:0] es_fwd_blk_bus,
-    input  [`MS_FWD_BLK_BUS_WD-1:0] ms_fwd_blk_bus
+    //hazard: to ds 
+    input  [`LW_HAZARD_BACK_WD -1:0] es_back_ds_hzd_bus ,
+    input  [`LW_HAZARD_BACK_WD -1:0] ms_back_ds_hzd_bus ,
+    input  [`HAZARD_BACK_WD -1:0] ws_back_ds_hzd_bus ,
+    //data forward: from es
+    input  [`ES_FORWARD_DS_DATA_WD -1:0] es_forward_ds_data
 );
 
 reg         ds_valid   ;
@@ -32,6 +34,9 @@ wire [31:0] ds_pc  ;
 assign {ds_inst,
         ds_pc  } = fs_to_ds_bus_r;
 
+wire [31:0] fs_pc;
+assign fs_pc = fs_to_ds_bus[31:0];
+
 wire        rf_we   ;
 wire [ 4:0] rf_waddr;
 wire [31:0] rf_wdata;
@@ -42,6 +47,8 @@ assign {rf_we   ,  //37:37
 
 wire        br_taken;
 wire [31:0] br_target;
+wire        br_hazard_type;
+wire        br_cancel;
 
 wire [11:0] alu_op;
 wire        load_op;
@@ -97,6 +104,8 @@ wire        inst_beq;
 wire        inst_bne;    
 wire        inst_lu12i_w;
 
+wire        i_type;
+
 wire        need_ui5;
 wire        need_si12;
 wire        need_si16;
@@ -111,50 +120,50 @@ wire [31:0] rf_rdata2;
 
 wire        rj_eq_rd;
 
-// block && forward strategy
-wire        es_fwd_we;
-wire        es_blk_we;
-wire [ 4:0] es_waddr;
-wire [31:0] es_wdata;
-wire        ms_fwd_we;
-wire [ 4:0] ms_waddr;
-wire [31:0] ms_wdata;
+wire        hazard_exist;
+wire        hazard_exist_1;
+wire        hazard_exist_2;
+wire        es_hazard;
+wire        ms_hazard;
+wire        ws_hazard;
+wire        es_hazard_1;
+wire        ms_hazard_1;
+wire        ws_hazard_1;
+wire        es_hazard_2;
+wire        ms_hazard_2;
+wire        ws_hazard_2;
+wire        ld_hazard;
+wire        es_gr_we;
+wire        ms_gr_we;
+wire        ws_gr_we;
+wire [4:0]  es_dest;
+wire [4:0]  ms_dest;
+wire [4:0]  ws_dest;
 
-wire es_blk;
-wire es_reg1_hazard;
-wire es_reg2_hazard;
-wire ms_reg1_hazard;
-wire ms_reg2_hazard;
-wire ws_reg1_hazard;
-wire ws_reg2_hazard;
+wire es_res_from_mem;
+wire ms_res_from_mem;
 
-wire        src_reg1;
-wire        src_reg2;
+wire [31:0] es_forward_data;
+wire [31:0] ms_forward_data;
+wire [31:0] ws_forward_data;
+wire [31:0] hazard_forward_data_1;
+wire [31:0] hazard_forward_data_2;
 
-assign {es_fwd_we, es_blk_we, es_waddr, es_wdata} = es_fwd_blk_bus;
-assign {ms_fwd_we, ms_waddr, ms_wdata} = ms_fwd_blk_bus;
+assign {es_forward_data,ms_forward_data,ws_forward_data} = es_forward_ds_data;
 
-assign src_reg1 = inst_add_w  | inst_sub_w  | inst_slt    | inst_sltu   |
-                  inst_nor    | inst_and    | inst_or     | inst_xor    |
-                  inst_slli_w | inst_srli_w | inst_srai_w | inst_addi_w |
-                  inst_ld_w   | inst_st_w   | inst_jirl   | inst_beq    | inst_bne;
-assign src_reg2 = inst_add_w  | inst_sub_w  | inst_slt    | inst_sltu   |
-                  inst_nor    | inst_and    | inst_or     | inst_xor    |
-                  inst_st_w   | inst_beq    | inst_bne;
+assign hazard_forward_data_1 = es_hazard_1 ? es_forward_data :
+                              ms_hazard_1 ? ms_forward_data :
+                              ws_hazard_1 ? ws_forward_data : 32'b0;
 
-assign es_blk = es_blk_we && es_waddr != 0 && (
-                src_reg1 && es_waddr == rf_raddr1 ||
-                src_reg1 && es_waddr == rf_raddr2
-                );
-assign es_reg1_hazard = es_fwd_we && es_waddr != 0 && src_reg1 && es_waddr == rf_raddr1;
-assign es_reg2_hazard = es_fwd_we && es_waddr != 0 && src_reg2 && es_waddr == rf_raddr2;
-assign ms_reg1_hazard = ms_fwd_we && ms_waddr != 0 && src_reg1 && ms_waddr == rf_raddr1;
-assign ms_reg2_hazard = ms_fwd_we && ms_waddr != 0 && src_reg2 && ms_waddr == rf_raddr2;
-assign ws_reg1_hazard = rf_we     && rf_waddr != 0 && src_reg1 && rf_waddr == rf_raddr1;
-assign ws_reg2_hazard = rf_we     && rf_waddr != 0 && src_reg2 && rf_waddr == rf_raddr2;
+assign hazard_forward_data_2 = es_hazard_2 ? es_forward_data :
+                              ms_hazard_2 ? ms_forward_data :
+                              ws_hazard_2 ? ws_forward_data : 32'b0;
 
+assign {es_res_from_mem,es_gr_we,es_dest} = es_back_ds_hzd_bus;
+assign {ms_res_from_mem,ms_gr_we,ms_dest} = ms_back_ds_hzd_bus;
+assign {ws_gr_we,ws_dest} = ws_back_ds_hzd_bus;
 
-assign br_bus       = {br_taken,br_target};
+assign br_bus       = {br_cancel,br_target};
 
 assign ds_to_es_bus = {alu_op      ,  //149:138
                        load_op     ,  //137:137
@@ -169,24 +178,56 @@ assign ds_to_es_bus = {alu_op      ,  //149:138
                        ds_pc          //31 :0
                       };
 
-// with blk
-assign ds_ready_go    = ~es_blk;
+assign es_hazard     = (es_gr_we && ((es_dest == rf_raddr1)|((es_dest == rf_raddr2) && ~i_type)));
+assign ms_hazard     = (ms_gr_we && ((ms_dest == rf_raddr1)|((ms_dest == rf_raddr2) && ~i_type)));
+assign ws_hazard     = (ws_gr_we && ((ws_dest == rf_raddr1)|((ws_dest == rf_raddr2) && ~i_type)));
 
+assign es_hazard_1   = es_gr_we && (es_dest == rf_raddr1);
+assign ms_hazard_1   = ms_gr_we && (ms_dest == rf_raddr1);
+assign ws_hazard_1   = ws_gr_we && (ws_dest == rf_raddr1);
+
+assign es_hazard_2   = es_gr_we && ((es_dest == rf_raddr2) && ~i_type);
+assign ms_hazard_2   = ms_gr_we && ((ms_dest == rf_raddr2) && ~i_type);
+assign ws_hazard_2   = ws_gr_we && ((ws_dest == rf_raddr2) && ~i_type);
+
+assign hazard_exist  = es_hazard | ms_hazard | ws_hazard;
+assign hazard_exist_1 = es_hazard_1 | ms_hazard_1 | ws_hazard_1;
+assign hazard_exist_2 = es_hazard_2 | ms_hazard_2 | ws_hazard_2;
+
+assign ld_hazard     = (es_hazard & es_res_from_mem) | (ms_hazard & ms_res_from_mem);
+
+assign ds_ready_go    = (~ld_hazard) | br_cancel;
 assign ds_allowin     = !ds_valid || ds_ready_go && es_allowin;
 assign ds_to_es_valid = ds_valid && ds_ready_go;
 
+assign br_cancel      = br_taken & ((br_hazard_type & ~ld_hazard) | ~br_hazard_type);
+
+/* HERE no declaration to ds_valid */
 always @(posedge clk) begin
     if (reset) begin
         ds_valid <= 1'b0;
-    end else if (br_taken) begin
+    end else if (br_cancel) begin
         ds_valid <= 1'b0;
     end else if (ds_allowin) begin
         ds_valid <= fs_to_ds_valid;
+    end else begin
+        ds_valid <= ds_valid;
     end
 end
 
+/* HERE: deal with branch, to avoid instruction confliction */
+/* 1 way: block 1 clock input
+reg counter;
+always @(posedge clk) begin
+    if (reset | ~br_taken) begin
+        counter <= 1'b0;
+    end else if (br_taken) begin
+        counter <= ~counter;
+    end
+end
+*/
 always @(posedge clk) begin 
-    if (fs_to_ds_valid && ds_allowin) begin
+    if (fs_to_ds_valid && ds_allowin/* && (~br_taken || counter)*/) begin
         fs_to_ds_bus_r <= fs_to_ds_bus;
     end
 end
@@ -231,6 +272,8 @@ assign inst_beq    = op_31_26_d[6'h16];
 assign inst_bne    = op_31_26_d[6'h17];
 assign inst_lu12i_w= op_31_26_d[6'h05] & ~ds_inst[25];
 
+assign i_type      = inst_slli_w | inst_srli_w | inst_srai_w | inst_addi_w | inst_jirl | inst_lu12i_w;
+
 assign alu_op[ 0] = inst_add_w | inst_addi_w | inst_ld_w | inst_st_w 
                     | inst_jirl | inst_bl;
 assign alu_op[ 1] = inst_sub_w;
@@ -247,6 +290,7 @@ assign alu_op[11] = inst_lu12i_w;
 
 assign load_op = inst_ld_w;
 
+
 assign need_ui5   =  inst_slli_w | inst_srli_w | inst_srai_w;
 assign need_si12  =  inst_addi_w | inst_ld_w | inst_st_w;
 assign need_si16  =  inst_jirl | inst_beq | inst_bne;
@@ -257,7 +301,7 @@ assign src2_is_4  =  inst_jirl | inst_bl;
 
 assign ds_imm = src2_is_4 ? 32'h4                      :
 		need_si20 ? {12'b0,i20[4:0],i20[19:5]} :  //i20[16:5]==i12[11:0]
-  /*need_ui5 || need_si12*/ {{20{i12[11]}}, i12[11:0]} ;
+        {{20{i12[11]}}, i12[11:0]} ;
 
 assign br_offs = need_si26 ? {{ 4{i26[25]}}, i26[25:0], 2'b0} : 
                              {{14{i16[15]}}, i16[15:0], 2'b0} ;
@@ -298,14 +342,9 @@ regfile u_regfile(
     .wdata  (rf_wdata )
     );
 
-assign rj_value  = es_reg1_hazard ? es_wdata :
-                   ms_reg1_hazard ? ms_wdata :
-                   ws_reg1_hazard ? rf_wdata :
-                                    rf_rdata1;
-assign rkd_value = es_reg2_hazard ? es_wdata :
-                   ms_reg2_hazard ? ms_wdata :
-                   ws_reg2_hazard ? rf_wdata :
-                                    rf_rdata2;
+
+assign rj_value  = hazard_exist_1 ? hazard_forward_data_1 : rf_rdata1; 
+assign rkd_value = hazard_exist_2 ? hazard_forward_data_2 : rf_rdata2;
 
 assign rj_eq_rd = (rj_value == rkd_value);
 assign br_taken = (   inst_beq  &&  rj_eq_rd
@@ -313,7 +352,8 @@ assign br_taken = (   inst_beq  &&  rj_eq_rd
                    || inst_jirl
                    || inst_bl
                    || inst_b
-                  ) && ds_valid && ds_ready_go; 
+                  ) && ds_valid; 
+assign br_hazard_type = (inst_beq || inst_bne); 
 assign br_target = (inst_beq || inst_bne || inst_bl || inst_b) ? (ds_pc + br_offs) :
                                                    /*inst_jirl*/ (rj_value + jirl_offs);
 

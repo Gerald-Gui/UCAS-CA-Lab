@@ -1,4 +1,4 @@
-module ram_top (
+module blk_ram_top (
     input         clk      ,
     input  [15:0] ram_addr ,
     input  [31:0] ram_wdata,
