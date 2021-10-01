@@ -91,6 +91,7 @@ assign es_alu_src2 = es_src2_is_imm ? es_imm :
 
 alu u_alu(
     .clk        (clk          ),
+    .rst        (reset        ),
     .alu_op     (es_alu_op    ),
     .alu_src1   (es_alu_src1  ),
     .alu_src2   (es_alu_src2  ),

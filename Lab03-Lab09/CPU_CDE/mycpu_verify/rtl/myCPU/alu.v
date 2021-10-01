@@ -1,14 +1,15 @@
 module alu(
-  input         clk,
-  input  [18:0] alu_op,
-  input  [31:0] alu_src1,
-  input  [31:0] alu_src2,
-  output [31:0] alu_result,
+    input         clk,
+    input         rst,
+    input  [18:0] alu_op,
+    input  [31:0] alu_src1,
+    input  [31:0] alu_src2,
+    output [31:0] alu_result,
   
-  // lab6 added, for mul and div
-  input         es_valid,
-  output        is_div,
-  output        div_finish
+    // lab6 added, for mul and div
+    input         es_valid,
+    output        is_div,
+    output        div_finish
 );
 
 wire op_add;   //add operation
@@ -63,10 +64,6 @@ wire        div_res_valid;
 wire        divu_res_valid;
 
 reg         div_valid;
-  initial begin
-    div_valid <= 1'b0;
-  end
-
 
 // 32-bit adder
 wire [31:0] adder_a;
@@ -143,29 +140,30 @@ assign sr_result   = sr64_result[31:0];
 assign mul_result  = $signed(mul_src1) * $signed(mul_src2);
 
 always @(posedge clk) begin
-  if(div_valid) begin
-    div_data_valid <= 1'b0;
-  end else if(es_valid & use_div & (~divisor_data_ready | ~dividend_data_ready))    begin
-    div_data_valid <= 1'b1;
-  end else /*if(es_valid & use_div & (divisor_data_ready & dividend_data_ready))*/ begin
-    div_data_valid <= 1'b0;
-  end
+    if (div_valid) begin
+        div_data_valid <= 1'b0;
+    end else if (es_valid & use_div & (~divisor_data_ready | ~dividend_data_ready)) begin
+        div_data_valid <= 1'b1;
+    end else /*if(es_valid & use_div & (divisor_data_ready & dividend_data_ready))*/ begin
+        div_data_valid <= 1'b0;
+    end
 
   
-  if(div_valid) begin
-    div_data_valid <= 1'b0;
-  end else if(es_valid & use_divu & (~u_divisor_data_ready | ~u_dividend_data_ready))begin
-    divu_data_valid <= 1'b1;
-  end else /* if(es_valid & use_divu & (divisor_data_ready & dividend_data_ready)) */ begin
-    divu_data_valid <= 1'b0;
-  end
+    if (div_valid) begin
+        div_data_valid <= 1'b0;
+    end else if (es_valid & use_divu & (~u_divisor_data_ready | ~u_dividend_data_ready)) begin
+        divu_data_valid <= 1'b1;
+    end else /* if(es_valid & use_divu & (divisor_data_ready & dividend_data_ready)) */ begin
+        divu_data_valid <= 1'b0;
+    end
 
-  if(div_res_valid | divu_res_valid)begin
-    div_valid <= 1'b0;
-  end
-  else if((div_data_valid & divisor_data_ready) | (divu_data_valid & u_divisor_data_ready)) begin
-    div_valid <= 1'b1;
-  end
+    if (rst) begin
+        div_valid <= 1'b0;
+    end else if (div_res_valid | divu_res_valid) begin
+        div_valid <= 1'b0;
+    end else if ((div_data_valid & divisor_data_ready) | (divu_data_valid & u_divisor_data_ready)) begin
+        div_valid <= 1'b1;
+    end
 end
 
 
