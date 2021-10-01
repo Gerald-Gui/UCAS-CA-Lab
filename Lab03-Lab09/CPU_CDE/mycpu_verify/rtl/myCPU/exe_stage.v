@@ -26,7 +26,7 @@ reg         es_valid      ;
 wire        es_ready_go   ;
 
 reg  [`DS_TO_ES_BUS_WD -1:0] ds_to_es_bus_r;
-wire [11:0] es_alu_op     ;
+wire [18:0] es_alu_op     ;
 wire        es_src1_is_pc ;
 wire        es_src2_is_imm; 
 wire        es_gr_we      ;
@@ -38,8 +38,11 @@ wire [31:0] es_rkd_value  ;
 wire [31:0] es_pc         ;
 
 wire        es_res_from_mem;
+wire        is_div;
+wire        div_finish;
+wire        waiting_ready;
 
-assign {es_alu_op      ,  //149:138
+assign {es_alu_op      ,  //156:138
         es_res_from_mem,  //137:137
         es_src1_is_pc  ,  //136:136
         es_src2_is_imm ,  //135:135
@@ -64,7 +67,7 @@ assign es_to_ms_bus = {es_res_from_mem,  //70:70
                        es_pc             //31:0
                       };
 
-assign es_ready_go    = 1'b1;
+assign es_ready_go    = ~(is_div & ~div_finish);
 assign es_allowin     = !es_valid || es_ready_go && ms_allowin;
 assign es_to_ms_valid =  es_valid && es_ready_go;
 always @(posedge clk) begin
@@ -87,10 +90,14 @@ assign es_alu_src2 = es_src2_is_imm ? es_imm :
                                       es_rkd_value;
 
 alu u_alu(
+    .clk        (clk          ),
     .alu_op     (es_alu_op    ),
     .alu_src1   (es_alu_src1  ),
     .alu_src2   (es_alu_src2  ),
-    .alu_result (es_alu_result)
+    .alu_result (es_alu_result),
+    .es_valid   (es_valid     ),
+    .is_div     (is_div       ),
+    .div_finish (div_finish   )
     );
 
 assign data_sram_en    = (es_res_from_mem || es_mem_we) && es_valid;
