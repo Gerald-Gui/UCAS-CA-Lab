@@ -153,12 +153,21 @@ wire ms_reg2_hazard;
 wire ws_reg1_hazard;
 wire ws_reg2_hazard;
 
+wire        src_reg1;
 wire        src_reg2;
 
 assign {es_fwd_we, es_blk_we, es_waddr, es_wdata} = es_fwd_blk_bus;
 assign {ms_fwd_we, ms_waddr, ms_wdata} = ms_fwd_blk_bus;
 
 // src_reg1 单独考虑
+assign src_reg1 = inst_add_w  | inst_sub_w  | inst_slt    | inst_sltu   |
+                  inst_nor    | inst_and    | inst_or     | inst_xor    |
+                  inst_slli_w | inst_srli_w | inst_srai_w | inst_addi_w |
+                  inst_ld_w   | inst_st_w   | inst_jirl   | inst_beq    |
+                  inst_bne    | inst_slti   | inst_sltui  | inst_andi   |
+                  inst_ori    | inst_xori   | inst_sll_w  | inst_srl_w  |
+                  inst_sra_w  | inst_mul_w  | inst_mulh_w | inst_mod_wu |
+                  inst_mulh_wu| inst_div_w  | inst_div_wu | inst_mod_w;
 assign src_reg2 = inst_add_w  | inst_sub_w  | inst_slt    | inst_sltu   |
                   inst_nor    | inst_and    | inst_or     | inst_xor    |
                   inst_st_w   | inst_beq    | inst_bne    | inst_sll_w  |
@@ -167,14 +176,14 @@ assign src_reg2 = inst_add_w  | inst_sub_w  | inst_slt    | inst_sltu   |
                   inst_mod_wu;
 
 assign es_blk = es_blk_we && es_waddr != 0 && (
-                es_waddr == rf_raddr1 ||
+                src_reg1 && es_waddr == rf_raddr1 ||
                 src_reg2 && es_waddr == rf_raddr2
                 );
-assign es_reg1_hazard = es_fwd_we && es_waddr != 0 && es_waddr == rf_raddr1;
+assign es_reg1_hazard = es_fwd_we && es_waddr != 0 && src_reg1 && es_waddr == rf_raddr1;
 assign es_reg2_hazard = es_fwd_we && es_waddr != 0 && src_reg2 && es_waddr == rf_raddr2;
-assign ms_reg1_hazard = ms_fwd_we && ms_waddr != 0 && ms_waddr == rf_raddr1;
+assign ms_reg1_hazard = ms_fwd_we && ms_waddr != 0 && src_reg1 && ms_waddr == rf_raddr1;
 assign ms_reg2_hazard = ms_fwd_we && ms_waddr != 0 && src_reg2 && ms_waddr == rf_raddr2;
-assign ws_reg1_hazard = rf_we     && rf_waddr != 0 && rf_waddr == rf_raddr1;
+assign ws_reg1_hazard = rf_we     && rf_waddr != 0 && src_reg1 && rf_waddr == rf_raddr1;
 assign ws_reg2_hazard = rf_we     && rf_waddr != 0 && src_reg2 && rf_waddr == rf_raddr2;
 
 
