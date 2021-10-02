@@ -33,8 +33,6 @@ wire op_divu;   //fetch mod
 wire op_mod;    //fetch mod
 wire op_modu;   //fetch mod
 
-wire  [32:0]  mul_src1;
-wire  [32:0]  mul_src2;
 reg  mul_res_sel; // 1 -> high; 0 -> low
 
 reg  div_data_valid;
@@ -71,12 +69,6 @@ wire [31:0] adder_b;
 wire        adder_cin;
 wire [31:0] adder_result;
 wire        adder_cout;
-
-
-assign mul_src1[31:0] = alu_src1[31:0];
-assign mul_src2[31:0] = alu_src2[31:0];
-assign mul_src1[32]   = (alu_src1[31] & op_mulh);
-assign mul_src2[32]   = (alu_src2[31] & op_mulh);
 
 // control code decomposition
 assign op_add  = alu_op[ 0];
@@ -221,8 +213,6 @@ assign alu_result = ({32{op_add | op_sub }} & add_sub_result)
                   | ({32{op_lui          }} & lui_result)
                   | ({32{op_sll          }} & sll_result)
                   | ({32{op_srl | op_sra }} & sr_result)
-                  | ({32{op_mul          }} & mul_result[31:0])
-                  | ({32{op_mulh|op_mulhu}} & mul_result[63:32])
                   | ({32{op_div          }} & div_result[63:32])
                   | ({32{op_divu         }} & divu_result[63:32])
                   | ({32{op_mod          }} & div_result[31:0])

@@ -85,7 +85,6 @@ module mul_top(
     end
 
     assign res = bus[132:67] + bus[66:1] + {65'b0, bus[0]};
-    // assign res = add_src1 + add_src2 + {65'b0, c[15]};
 
     assign add_src1 = Sum;
     assign add_src2 = {Carry[64:0], c[14]};
@@ -121,11 +120,11 @@ module mul_top(
         end
     endgenerate
 
-    wallace w00(.clk(clk), .rst(rst), .in(trans_p[ 0]), .cin(c[13:0]), .cout(wallace_c[0]), .carry(Carry[0]), .sum(Sum[0]));
+    wallace w00(.in(trans_p[ 0]), .cin(c[13:0]), .cout(wallace_c[0]), .carry(Carry[0]), .sum(Sum[0]));
 
     generate
         for (i = 1; i < 66; i = i + 1) begin
-            wallace wi(.clk(clk), .rst(rst), .in(trans_p[i]), .cin(wallace_c[i-1]), .cout(wallace_c[i]), .carry(Carry[i]), .sum(Sum[i]));
+            wallace wi(.in(trans_p[i]), .cin(wallace_c[i-1]), .cout(wallace_c[i]), .carry(Carry[i]), .sum(Sum[i]));
         end
     endgenerate
 
@@ -163,8 +162,6 @@ module boothgen(
 endmodule
 
 module wallace (
-        input clk,
-        input rst,
         input [16:0] in,
         input [13:0] cin,
 
@@ -173,7 +170,6 @@ module wallace (
         output        sum
     );
 
-    // wire [13:0] C_out;
     wire [15:0] Sum;
 
 

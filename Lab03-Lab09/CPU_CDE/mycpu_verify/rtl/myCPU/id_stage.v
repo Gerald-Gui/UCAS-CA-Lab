@@ -117,10 +117,10 @@ wire        inst_div_wu;
 wire        inst_mod_w;
 wire        inst_mod_wu;
 // other b type
-wire        inst_blt;
-wire        inst_bge;
-wire        inst_bltu;
-wire        inst_bgeu;
+// wire        inst_blt;
+// wire        inst_bge;
+// wire        inst_bltu;
+// wire        inst_bgeu;
 
 wire        need_ui5;
 wire        need_ui12;
@@ -160,7 +160,6 @@ wire        src_reg2;
 assign {es_fwd_we, es_blk_we, es_waddr, es_wdata} = es_fwd_blk_bus;
 assign {ms_fwd_we, ms_waddr, ms_wdata} = ms_fwd_blk_bus;
 
-// src_reg1 单独考虑
 assign src_reg1 = inst_add_w  | inst_sub_w  | inst_slt    | inst_sltu   |
                   inst_nor    | inst_and    | inst_or     | inst_xor    |
                   inst_slli_w | inst_srli_w | inst_srai_w | inst_addi_w |
@@ -286,16 +285,16 @@ assign inst_ori   = op_31_26_d[6'h00] & op_25_22_d[4'he];
 assign inst_xori  = op_31_26_d[6'h00] & op_25_22_d[4'hf];
 assign inst_pcaddu12i = op_31_26_d[6'h07] & ~ds_inst[25];
 
-assign inst_blt   = op_31_26_d[6'h18];
-assign inst_bge   = op_31_26_d[6'h19];
-assign inst_bltu  = op_31_26_d[6'h1a];
-assign inst_bgeu  = op_31_26_d[6'h1b];
+// assign inst_blt   = op_31_26_d[6'h18];
+// assign inst_bge   = op_31_26_d[6'h19];
+// assign inst_bltu  = op_31_26_d[6'h1a];
+// assign inst_bgeu  = op_31_26_d[6'h1b];
 
 assign alu_op[ 0] = inst_add_w  | inst_addi_w | inst_ld_w | inst_st_w | inst_jirl | inst_bl |
                     inst_pcaddu12i;
 assign alu_op[ 1] = inst_sub_w;
-assign alu_op[ 2] = inst_slt    | inst_slti | inst_blt | inst_bge;
-assign alu_op[ 3] = inst_sltu   | inst_sltui | inst_bltu | inst_bgeu;
+assign alu_op[ 2] = inst_slt    | inst_slti/* | inst_blt | inst_bge*/;
+assign alu_op[ 3] = inst_sltu   | inst_sltui/* | inst_bltu | inst_bgeu*/;
 assign alu_op[ 4] = inst_and    | inst_andi;
 assign alu_op[ 5] = inst_nor;
 assign alu_op[ 6] = inst_or     | inst_ori;
