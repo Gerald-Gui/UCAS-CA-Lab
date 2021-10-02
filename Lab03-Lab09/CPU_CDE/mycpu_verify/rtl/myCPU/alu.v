@@ -35,10 +35,8 @@ wire op_modu;  //fetch mod
 wire  [32:0]  mul_src1;
 wire  [32:0]  mul_src2;
 
-reg div_data_valid;
-wire div_data_valid_wire = div_data_valid;
-reg divu_data_valid;
-wire divu_data_valid_wire= divu_data_valid;
+reg  div_data_valid;
+reg  divu_data_valid;
 wire divisor_data_ready;
 wire dividend_data_ready;
 wire u_divisor_data_ready;
@@ -56,7 +54,7 @@ wire [31:0] lui_result;
 wire [31:0] sll_result;
 wire [63:0] sr64_result;
 wire [31:0] sr_result;
-wire [65:0] mul_result;
+wire [63:0] mul_result;
 wire [63:0] div_result;
 wire [63:0] divu_result;
 
@@ -137,7 +135,18 @@ assign sr64_result = {{32{op_sra & alu_src1[31]}}, alu_src1[31:0]} >> alu_src2[4
 
 assign sr_result   = sr64_result[31:0];
 
-assign mul_result  = $signed(mul_src1) * $signed(mul_src2);
+// MUL result
+// assign mul_result  = $signed(mul_src1) * $signed(mul_src2);
+
+mul_top umul(
+    .clk(clk),
+    .rst(rst),
+    .mul_signed(op_mulh),
+    .src1(alu_src1),
+    .src2(alu_src2),
+    .res(mul_result)
+);
+
 
 always @(posedge clk) begin
     if (div_valid) begin
