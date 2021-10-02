@@ -74,18 +74,18 @@ module mul_top(
     wire [32:0] ext_src1;
     wire [32:0] ext_src2;
 
-    // reg [132:0] bus;
+    reg [132:0] bus;
 
-    // always @ (posedge clk) begin
-    //     if (rst) begin
-    //         bus <= 133'b0;
-    //     end else begin
-    //         bus <= {add_src1, add_src2, c[15]};
-    //     end
-    // end
+    always @ (posedge clk) begin
+        if (rst) begin
+            bus <= 133'b0;
+        end else begin
+            bus <= {add_src1, add_src2, c[15]};
+        end
+    end
 
-    // assign res = bus[132:67] + bus[66:1] + {65'b0, bus[0]};
-    assign res = add_src1 + add_src2 + {65'b0, c[15]};
+    assign res = bus[132:67] + bus[66:1] + {65'b0, bus[0]};
+    // assign res = add_src1 + add_src2 + {65'b0, c[15]};
 
     assign add_src1 = Sum;
     assign add_src2 = {Carry[64:0], c[14]};

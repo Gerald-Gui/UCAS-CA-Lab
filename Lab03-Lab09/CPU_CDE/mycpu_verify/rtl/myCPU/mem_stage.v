@@ -16,25 +16,31 @@ module mem_stage(
     input  [31                 :0] data_sram_rdata,
 
     // blk bus to id
-    output [`MS_FWD_BLK_BUS_WD-1:0] ms_fwd_blk_bus
+    output [`MS_FWD_BLK_BUS_WD-1:0] ms_fwd_blk_bus,
+    // mul final res
+    input  [64:0] ms_mul_res_bus
 );
 
 reg         ms_valid;
 wire        ms_ready_go;
 
 reg [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus_r;
+wire        ms_res_from_mul;
 wire        ms_res_from_mem;
 wire        ms_gr_we;
 wire [ 4:0] ms_dest;
 wire [31:0] ms_alu_result;
 wire [31:0] ms_pc;
-assign {ms_res_from_mem,  //70:70
+assign {ms_res_from_mul,  //71:71
+        ms_res_from_mem,  //70:70
         ms_gr_we       ,  //69:69
         ms_dest        ,  //68:64
         ms_alu_result  ,  //63:32
         ms_pc             //31:0
        } = es_to_ms_bus_r;
 
+wire        mul_res_sel;
+wire [31:0] mul_result;
 wire [31:0] mem_result;
 wire [31:0] ms_final_result;
 
@@ -60,10 +66,15 @@ always @(posedge clk) begin
     end
 end
 
+assign mul_res_sel = ms_mul_res_bus[64];
+assign mul_result  = mul_res_sel ? ms_mul_res_bus[63:32] :
+                                   ms_mul_res_bus[31: 0];
+
 assign mem_result = data_sram_rdata;
 
-assign ms_final_result = ms_res_from_mem ? mem_result
-                                         : ms_alu_result;
+assign ms_final_result = ms_res_from_mul ? mul_result :
+                         ms_res_from_mem ? mem_result :
+                                           ms_alu_result;
 
 assign ms_fwd_blk_bus = {ms_gr_we & ms_valid, ms_dest, ms_final_result};
 

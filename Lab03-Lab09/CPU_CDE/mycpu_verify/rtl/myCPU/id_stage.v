@@ -47,6 +47,7 @@ wire [18:0] alu_op;
 wire        load_op;
 wire        src1_is_pc;
 wire        src2_is_imm;
+wire        res_from_mul;
 wire        res_from_mem;
 wire        dst_is_r1;
 wire        gr_we;
@@ -189,7 +190,8 @@ assign ws_reg2_hazard = rf_we     && rf_waddr != 0 && src_reg2 && rf_waddr == rf
 
 assign br_bus       = {br_taken,br_target};
 
-assign ds_to_es_bus = {alu_op      ,  //156:138
+assign ds_to_es_bus = {alu_op      ,  //157:139
+                       res_from_mul,  //138:138
                        load_op     ,  //137:137
                        src1_is_pc  ,  //136:136
                        src2_is_imm ,  //135:135
@@ -352,7 +354,7 @@ assign src2_is_imm   = inst_slli_w |
                        inst_xori   |
                        inst_pcaddu12i;
 
-
+assign res_from_mul  = inst_mul_w | inst_mulh_w | inst_mulh_wu;
 assign res_from_mem  = inst_ld_w;
 assign dst_is_r1     = inst_bl;
 assign gr_we         = ~inst_st_w & ~inst_beq & ~inst_bne & ~inst_b;

@@ -42,6 +42,8 @@ wire [`BR_BUS_WD       -1:0] br_bus;
 wire [`ES_FWD_BLK_BUS_WD - 1:0] es_fwd_blk_bus;
 wire [`MS_FWD_BLK_BUS_WD - 1:0] ms_fwd_blk_bus;
 
+wire [64:0] mul_res_bus;
+
 // IF stage
 if_stage if_stage(
     .clk            (clk            ),
@@ -100,7 +102,8 @@ exe_stage exe_stage(
     .data_sram_addr (data_sram_addr ),
     .data_sram_wdata(data_sram_wdata),
 
-    .es_fwd_blk_bus (es_fwd_blk_bus)
+    .es_fwd_blk_bus (es_fwd_blk_bus),
+    .es_mul_res_bus (mul_res_bus   )
 );
 // MEM stage
 mem_stage mem_stage(
@@ -118,7 +121,8 @@ mem_stage mem_stage(
     //from data-sram
     .data_sram_rdata(data_sram_rdata),
 
-    .ms_fwd_blk_bus (ms_fwd_blk_bus)
+    .ms_fwd_blk_bus (ms_fwd_blk_bus),
+    .ms_mul_res_bus (mul_res_bus   )
 );
 // WB stage
 wb_stage wb_stage(

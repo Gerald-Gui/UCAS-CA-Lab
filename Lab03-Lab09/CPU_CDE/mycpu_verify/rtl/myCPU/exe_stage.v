@@ -19,7 +19,9 @@ module exe_stage(
     output [31:0] data_sram_wdata,
 
     // blk bus to id
-    output [`ES_FWD_BLK_BUS_WD-1:0] es_fwd_blk_bus
+    output [`ES_FWD_BLK_BUS_WD-1:0] es_fwd_blk_bus,
+    // mul pipe res for MEM
+    output [64:0] es_mul_res_bus
 );
 
 reg         es_valid      ;
@@ -38,11 +40,13 @@ wire [31:0] es_rkd_value  ;
 wire [31:0] es_pc         ;
 
 wire        es_res_from_mem;
+wire        es_res_from_mul;
 wire        is_div;
 wire        div_finish;
 wire        waiting_ready;
 
-assign {es_alu_op      ,  //156:138
+assign {es_alu_op      ,  //157:139
+        es_res_from_mul,  //138:138
         es_res_from_mem,  //137:137
         es_src1_is_pc  ,  //136:136
         es_src2_is_imm ,  //135:135
@@ -60,7 +64,8 @@ wire [31:0] es_alu_src2   ;
 wire [31:0] es_alu_result ;
 
 //assign es_res_from_mem = es_load_op;
-assign es_to_ms_bus = {es_res_from_mem,  //70:70
+assign es_to_ms_bus = {es_res_from_mul,
+                       es_res_from_mem,  //70:70
                        es_gr_we       ,  //69:69
                        es_dest        ,  //68:64
                        es_alu_result  ,  //63:32
@@ -98,7 +103,8 @@ alu u_alu(
     .alu_result (es_alu_result),
     .es_valid   (es_valid     ),
     .is_div     (is_div       ),
-    .div_finish (div_finish   )
+    .div_finish (div_finish   ),
+    .mul_res_bus(es_mul_res_bus)
     );
 
 assign data_sram_en    = (es_res_from_mem || es_mem_we) && es_valid;
@@ -106,6 +112,10 @@ assign data_sram_wen   = es_mem_we ? 4'hf : 4'h0;
 assign data_sram_addr  = es_alu_result;
 assign data_sram_wdata = es_rkd_value;
 
-assign es_fwd_blk_bus = {es_gr_we & es_valid, es_res_from_mem & es_valid, es_dest, es_alu_result};
+assign es_fwd_blk_bus = {
+    es_gr_we & es_valid,
+    (es_res_from_mem | es_res_from_mul) & es_valid,
+    es_dest,
+    es_alu_result};
 
 endmodule
