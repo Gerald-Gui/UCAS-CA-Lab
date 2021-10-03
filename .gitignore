@@ -11,6 +11,7 @@
 !*.pdf
 !*.tex
 !*.png
+!*.jpg
 
 Lab03-Lab09/CPU_CDE/func/
 Lab03-Lab09/CPU_CDE/gettrace/
