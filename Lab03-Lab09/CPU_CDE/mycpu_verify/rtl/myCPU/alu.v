@@ -1,43 +1,44 @@
 module alu(
-  input         clk,
-  input  [18:0] alu_op,
-  input  [31:0] alu_src1,
-  input  [31:0] alu_src2,
-  output [31:0] alu_result,
+    input         clk,
+    input         rst,
+    input  [18:0] alu_op,
+    input  [31:0] alu_src1,
+    input  [31:0] alu_src2,
+    output [31:0] alu_result,
   
-  // lab6 added, for mul and div
-  input         es_valid,
-  output        is_div,
-  output        div_finish
+    // lab6 added, for mul and div
+    input         es_valid,
+    output        is_div,
+    output        div_finish,
+    output [64:0] mul_res_bus   // to MEM stage
 );
 
-wire op_add;   //add operation
-wire op_sub;   //sub operation
-wire op_slt;   //signed compared and set less than
-wire op_sltu;  //unsigned compared and set less than
-wire op_and;   //bitwise and
-wire op_nor;   //bitwise nor
-wire op_or;    //bitwise or
-wire op_xor;   //bitwise xor
-wire op_sll;   //logic left shift
-wire op_srl;   //logic right shift
-wire op_sra;   //arithmetic right shift
-wire op_lui;   //Load Upper Immediate
-wire op_mul;   //multiple
+wire op_add;    //add operation
+wire op_sub;    //sub operation
+wire op_slt;    //signed compared and set less than
+wire op_sltu;   //unsigned compared and set less than
+wire op_and;    //bitwise and
+wire op_nor;    //bitwise nor
+wire op_or;     //bitwise or
+wire op_xor;    //bitwise xor
+wire op_sll;    //logic left shift
+wire op_srl;    //logic right shift
+wire op_sra;    //arithmetic right shift
+wire op_lui;    //Load Upper Immediate
+wire op_mul;    //multiple
 wire op_mulh;   //multiple
-wire op_mulhu;   //multiple
-wire op_div;   //divide
-wire op_divu;  //fetch mod
-wire op_mod;   //fetch mod
-wire op_modu;  //fetch mod
+wire op_mulhu;  //multiple
+wire op_div;    //divide
+wire op_divu;   //fetch mod
+wire op_mod;    //fetch mod
+wire op_modu;   //fetch mod
 
 wire  [32:0]  mul_src1;
 wire  [32:0]  mul_src2;
+reg  mul_res_sel; // 1 -> high; 0 -> low
 
-reg div_data_valid;
-wire div_data_valid_wire = div_data_valid;
-reg divu_data_valid;
-wire divu_data_valid_wire= divu_data_valid;
+reg  div_data_valid;
+reg  divu_data_valid;
 wire divisor_data_ready;
 wire dividend_data_ready;
 wire u_divisor_data_ready;
@@ -55,7 +56,7 @@ wire [31:0] lui_result;
 wire [31:0] sll_result;
 wire [63:0] sr64_result;
 wire [31:0] sr_result;
-wire [65:0] mul_result;
+wire [63:0] mul_result;
 wire [63:0] div_result;
 wire [63:0] divu_result;
 
@@ -63,10 +64,6 @@ wire        div_res_valid;
 wire        divu_res_valid;
 
 reg         div_valid;
-  initial begin
-    div_valid <= 1'b0;
-  end
-
 
 // 32-bit adder
 wire [31:0] adder_a;
@@ -140,32 +137,52 @@ assign sr64_result = {{32{op_sra & alu_src1[31]}}, alu_src1[31:0]} >> alu_src2[4
 
 assign sr_result   = sr64_result[31:0];
 
-assign mul_result  = $signed(mul_src1) * $signed(mul_src2);
+// MUL result
+mul_top umul(
+    .clk(clk),
+    .rst(rst),
+    .mul_signed(op_mulh),
+    .src1(alu_src1),
+    .src2(alu_src2),
+    .res(mul_result)
+);
+
+assign mul_res_bus = {mul_res_sel, mul_result};
+
+always @ (posedge clk) begin
+    if (rst) begin
+        mul_res_sel <= 1'b0;
+    end else begin
+        mul_res_sel <= op_mulh | op_mulhu;
+    end
+end
+
 
 always @(posedge clk) begin
-  if(div_valid) begin
-    div_data_valid <= 1'b0;
-  end else if(es_valid & use_div & (~divisor_data_ready | ~dividend_data_ready))    begin
-    div_data_valid <= 1'b1;
-  end else /*if(es_valid & use_div & (divisor_data_ready & dividend_data_ready))*/ begin
-    div_data_valid <= 1'b0;
-  end
+    if (div_valid) begin
+        div_data_valid <= 1'b0;
+    end else if (es_valid & use_div & (~divisor_data_ready | ~dividend_data_ready)) begin
+        div_data_valid <= 1'b1;
+    end else /*if(es_valid & use_div & (divisor_data_ready & dividend_data_ready))*/ begin
+        div_data_valid <= 1'b0;
+    end
 
   
-  if(div_valid) begin
-    divu_data_valid <= 1'b0;
-  end else if(es_valid & use_divu & (~u_divisor_data_ready | ~u_dividend_data_ready))begin
-    divu_data_valid <= 1'b1;
-  end else /* if(es_valid & use_divu & (divisor_data_ready & dividend_data_ready)) */ begin
-    divu_data_valid <= 1'b0;
-  end
+    if (div_valid) begin
+        divu_data_valid <= 1'b0;
+    end else if (es_valid & use_divu & (~u_divisor_data_ready | ~u_dividend_data_ready)) begin
+        divu_data_valid <= 1'b1;
+    end else /* if(es_valid & use_divu & (divisor_data_ready & dividend_data_ready)) */ begin
+        divu_data_valid <= 1'b0;
+    end
 
-  if(div_res_valid | divu_res_valid)begin
-    div_valid <= 1'b0;
-  end
-  else if((div_data_valid & divisor_data_ready) | (divu_data_valid & u_divisor_data_ready)) begin
-    div_valid <= 1'b1;
-  end
+    if (rst) begin
+        div_valid <= 1'b0;
+    end else if (div_res_valid | divu_res_valid) begin
+        div_valid <= 1'b0;
+    end else if ((div_data_valid & divisor_data_ready) | (divu_data_valid & u_divisor_data_ready)) begin
+        div_valid <= 1'b1;
+    end
 end
 
 
