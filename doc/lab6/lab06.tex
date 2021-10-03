@@ -108,7 +108,23 @@
 	
 	Booth两位乘部分积生成器的设计来自理论课教材，17个数相加的华莱士树设计来自实验课讲义。此处均不再赘述。在流水级划分上，考虑Booth部分积生成逻辑与华莱士树中6层1位全加器的总延迟约为20余级门（具体延迟大小取决于Vivado对1位加法器的实现），最终合并华莱士树结果的66位加法器将产生相当级别的延迟，故而选择将流水级切分在66位加法器入口处实现。采用一个133位寄存器将加法器的两个66位输入与1位进位输入锁一拍以实现流水化，在两拍内计算得到乘法结果。
 	
+	流水化的主要实现如下：
+	\begin{lstlisting}[language=verilog]
+	reg [132:0] bus;
+	
+	always @ (posedge clk) begin
+		if (rst) begin
+			bus <= 133'b0;
+		end else begin
+			bus <= {add_src1, add_src2, c[15]};
+		end
+	end
+	
+	assign res = bus[132:67] + bus[66:1] + {65'b0, bus[0]};\end{lstlisting}
+	
 	\subsubsection{接口定义}
+	
+	接口定义见下页。
 	
 	\begin{table}[!h]
 		\centering
@@ -176,33 +192,36 @@
 	
 	\subsubsection{接口定义}
 	
-	根据讲义描述，调用并设置好Vivado提供的有无符号除法IP核，注意IP核暴露的所有接口都有作用，需要全部连接，接口如下：
+	根据讲义描述，调用并设置好Vivado提供的有无符号除法IP核，注意IP核暴露的所有接口都有作用，需要全部连接，接口如下页。
 	
+	\begin{table}[!h]
 	\begin{center}
-		\begin{tabular}{|c|c|c|c|}
+		\caption{除法器IP核接口定义}
+		\begin{tabularx}{\textwidth}{|c|c|c|Y|}
 			\hline
-			\textbf{接口} & \textbf{位宽} & \textbf{I/O} & \textbf{说明} \\
+			\textbf{接口} & \textbf{I/O} & \textbf{位宽} & \textbf{说明} \\
 			\hline
-			aclk & 1 & input & 时钟驱动，迭代除法 \\
+			\texttt{aclk} & \textsc{In} & 1 & 时钟驱动，迭代除法 \\
 			\hline
-			s\_axis\_divisor\_tdata & 32 & input & 除数输入 \\
+			\texttt{s\_axis\_divisor\_tdata} & \textsc{In} & 32 & 除数输入 \\
 			\hline
-			s\_axis\_dividend\_tdata & 32 & input & 被除数输入 \\
+			\texttt{s\_axis\_dividend\_tdata} & \textsc{In} & 32 & 被除数输入 \\
 			\hline
-			s\_axis\_divisor\_tready & 1 & output & 是否准备好读取除数 \\
+			\texttt{s\_axis\_divisor\_tready} & \textsc{Out} & 1 & 是否准备好读取除数 \\
 			\hline
-			s\_axis\_dividend\_tready & 1 & output & 是否准备好读取被除数 \\
+			\texttt{s\_axis\_dividend\_tready} & \textsc{Out} & 1 & 是否准备好读取被除数 \\
 			\hline
-			s\_axis\_divisor\_tvalid & 1 & input & 除数输入是否有效，开始运算 \\
+			\texttt{s\_axis\_divisor\_tvalid} & \textsc{In} & 1 & 除数输入是否有效，开始运算 \\
 			\hline
-			s\_axis\_dividend\_tvalid & 1 & input & 被除数输入是否有效，开始运算 \\
+			\texttt{s\_axis\_dividend\_tvalid} & \textsc{In} & 1 & 被除数输入是否有效，开始运算 \\
 			\hline
-			m\_axis\_dout\_tdata & 64 & output & 商和余数结果输出 \\
+			\texttt{m\_axis\_dout\_tdata} & \textsc{Out} & 64 & 商和余数结果输出 \\
 			\hline
-			m\_axis\_dout\_tvalid & 1 & output & 输出是否有效，当前除法是否算完 \\
+			\texttt{m\_axis\_dout\_tvalid} & \textsc{Out} & 1 & 输出是否有效，当前除法是否算完 \\
 			\hline
-		\end{tabular}
+		\end{tabularx}
 	\end{center}
+	\end{table}
 
 	\subsubsection{使用说明}
 	\label{Valid_input}
@@ -220,7 +239,6 @@
 		end else begin
 			div_data_valid <= 1'b0;
 		end
-		
 		
 		if (div_valid) begin
 			divu_data_valid <= 1'b0;
@@ -278,7 +296,7 @@
 			
 	该问题来自对乘法器流水化导致的时序问题认识不足，意味着在设计时未能准确完善地把握控制信号的维护与传递。
 	
-	\subsubsection{错误2:除法器aclk信号未接入}
+	\subsubsection{错误\textbf{2:}除法器aclk信号未接入}
 	
 	\paragraph{错误现象}\hfill
 	
@@ -286,7 +304,7 @@
 	
 	\begin{figure}[h]
 		\centering
-		\includegraphics[width=0.7\linewidth]{pictures/no_aclk.png}
+		\includegraphics[width=0.7\linewidth]{no_aclk.png}
 		\caption[no\_aclk]{除法器aclk信号悬空}
 		\label{fig:noaclk}
 	\end{figure}
@@ -317,7 +335,7 @@
 	
 	今后在遇到新的模块进行例化时要将需要操作的接口看全、注意类型和位宽，恰当使用。
 	
-	\subsubsection{错误3:除法器运算过程持续读取输入}
+	\subsubsection{错误\textbf{3:}除法器运算过程持续读取输入}
 	
 	\paragraph{错误现象}\hfill
 	
@@ -325,7 +343,7 @@
 	
 	\begin{figure}[h]
 		\centering
-		\includegraphics[width=1\linewidth]{pictures/valid_error.png}
+		\includegraphics[width=1\linewidth]{valid_error.png}
 		\caption[valid\_errpr]{除法器Valid信号设置错误}
 		\label{fig:validerror}
 	\end{figure}
@@ -341,18 +359,16 @@
 	
 	除法器Valid信号设置错误，在一次乘法指令中多次读取操作数输入进行运算，导致结果多次输出，可能会覆盖下一次乘法指令的结果。
 	
-	% 前面加一些乘法器代码，根据修改后的页面决定这个放在修正效果paragragh下面还是上面
-	%  别忘了修改下面“如上所示”
 	\begin{figure}[h]
 		\centering
-		\includegraphics[width=1\linewidth]{pictures/valid_correct.png}
+		\includegraphics[width=1\linewidth]{valid_correct.png}
 		\caption[Valid\_correct]{正确Valid输入信号效果}
 		\label{fig:validcorrect}
 	\end{figure}
 
 	\paragraph{修正效果}\hfill
 	
-	采用新的变量div\_valid来表示除法开始到结束的过程，在此过程中除法器Valid输入只能在最开始拉高，紧接着持续拉低，修正代码如\ref{Valid_input}中代码所示。修正后效果如上所示。
+	采用新的变量div\_valid来表示除法开始到结束的过程，在此过程中除法器Valid输入只能在最开始拉高，紧接着持续拉低，修正代码如\ref{Valid_input} 中代码所示。修正后效果如下页所示。
 	
 	\paragraph{总结归纳}\hfill
 	
@@ -360,7 +376,8 @@
 	
 	\section{实验总结}
 	
-%	显然这里这几句不是成文，留着后面哔哔赖赖吧
-	除法器始终使用Xilinx IP，乘法器使用Xilinx IP(即 * 号)时WNS为0.162\,ns，使用自行设计的单周期乘法器时WNS为0.073\,ns，将乘法器流水化后WNS（两拍完成乘法）为1.418\,ns
+	运算式指令的主要实现复用此前实现的数据通路即可，特别注意乘除法导致的时序问题即可。
+	
+	时序满足上，乘法器使用Xilinx IP(即 * 号)时WNS为0.162\,ns，使用自行设计的单周期乘法器时WNS为0.073\,ns，将乘法器流水化后WNS（两拍完成乘法）为1.418\,ns。
 	
 \end{document}
