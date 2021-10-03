@@ -1,1 +1,5 @@
 template*
+
+*.aux
+*.log
+*.syntex.gz
