@@ -26,6 +26,7 @@
 \usepackage{multirow}
 \usepackage{pgfplotstable}
 \usepackage{mhchem}
+\usepackage{graphicx}
 
 \newcolumntype{Y}{>{\centering\arraybackslash}X}
 \geometry{a4paper,centering,top=1.27cm,bottom=2.54cm,left=2cm,right=2cm}
@@ -171,7 +172,75 @@
 	
 	\subsection{除法器IP调用与时序处理}
 	
-	blablabla
+	笔者将乘除法所有实现放在alu.v中，这就意味着alu\_op需要拓宽至19位，囊括所有乘除法指令信息，对于除法需要有无符号的信息、取商或余数的信息，并且这些信息彼此互斥，很难提取共同特征而缩减，因此可直接对乘除法每类指令设置一位alu\_op，求得的结果也可以根据alu\_op直接选取。
+	
+	\subsubsection{接口定义}
+	
+	根据讲义描述，调用并设置好Vivado提供的有无符号除法IP核，注意IP核暴露的所有接口都有作用，需要全部连接，接口如下：
+	
+	\begin{center}
+		\begin{tabular}{|c|c|c|c|}
+			\hline
+			\textbf{接口} & \textbf{位宽} & \textbf{I/O} & \textbf{说明} \\
+			\hline
+			aclk & 1 & input & 时钟驱动，迭代除法 \\
+			\hline
+			s\_axis\_divisor\_tdata & 32 & input & 除数输入 \\
+			\hline
+			s\_axis\_dividend\_tdata & 32 & input & 被除数输入 \\
+			\hline
+			s\_axis\_divisor\_tready & 1 & output & 是否准备好读取除数 \\
+			\hline
+			s\_axis\_dividend\_tready & 1 & output & 是否准备好读取被除数 \\
+			\hline
+			s\_axis\_divisor\_tvalid & 1 & input & 除数输入是否有效，开始运算 \\
+			\hline
+			s\_axis\_dividend\_tvalid & 1 & input & 被除数输入是否有效，开始运算 \\
+			\hline
+			m\_axis\_dout\_tdata & 64 & output & 商和余数结果输出 \\
+			\hline
+			m\_axis\_dout\_tvalid & 1 & output & 输出是否有效，当前除法是否算完 \\
+			\hline
+		\end{tabular}
+	\end{center}
+
+	\subsubsection{使用说明}
+	\label{Valid_input}
+
+	正如讲义强调的，除法IP核采用AXI总线接口，Ready和Valid信号同时有效时开始输入，经过观察，我们设置的clocks per Division选项是Ready信号每次拉高间隔的时钟周期数，我们需要保证Valid信号第一次和Ready信号同时拉高后必须在该除法计算整个完成后(m\_axis\_dout\_tvalid信号拉高)之后才能有条件再度拉高，进行下一次计算，在此过程中流水级也需要进行阻塞。
+	
+	笔者在实验中使用了另一个信号div\_valid，它为高电平当且仅当整个除法运算开始且未结束，于是一旦它为高电平，除法器输入的两个Valid信号就不能拉高。因为除数被除数的Ready和Vallid信号需要同时拉高，用同一个div\_data\_valid信号进行控制即可，于是下面是控制信号的时序赋值过程：
+	
+	\begin{lstlisting}[language=verilog]
+	always @(posedge clk) begin
+		if (div_valid) begin
+			div_data_valid <= 1'b0;
+		end else if (es_valid & use_div & (~divisor_data_ready | ~dividend_data_ready)) begin
+			div_data_valid <= 1'b1;
+		end else begin
+			div_data_valid <= 1'b0;
+		end
+		
+		
+		if (div_valid) begin
+			divu_data_valid <= 1'b0;
+		end else if (es_valid & use_divu & (~u_divisor_data_ready | ~u_dividend_data_ready)) begin
+			divu_data_valid <= 1'b1;
+		end else begin
+			divu_data_valid <= 1'b0;
+		end
+		
+		if (rst) begin
+			div_valid <= 1'b0;
+		end else if (div_res_valid | divu_res_valid) begin
+			div_valid <= 1'b0;
+		end else if ((div_data_valid & divisor_data_ready) | (divu_data_valid & u_divisor_data_ready)) begin
+			div_valid <= 1'b1;
+		end
+	end
+	\end{lstlisting}
+
+	除法器实例化连接后，对于结果直接取$[63:32]$位作为商，$[31:0]$作为余数。
 	
 	\section{实验过程}
 	
@@ -208,6 +277,86 @@
 	\paragraph{归纳总结}\hfill
 			
 	该问题来自对乘法器流水化导致的时序问题认识不足，意味着在设计时未能准确完善地把握控制信号的维护与传递。
+	
+	\subsubsection{错误2:除法器aclk信号未接入}
+	
+	\paragraph{错误现象}\hfill
+	
+	除法一直阻塞在exe流水级，div模块中aclk显示黄色U，s\_axis\_divisor\_tready信号始终未能拉高。
+	
+	\begin{figure}[h]
+		\centering
+		\includegraphics[width=0.7\linewidth]{pictures/no_aclk.png}
+		\caption[no\_aclk]{除法器aclk信号悬空}
+		\label{fig:noaclk}
+	\end{figure}
+	
+	\paragraph{分析定位过程 \& 错误原因}\hfill
+	
+	因为错误为除法指令，去查看div模块如何出错，发现一个未赋值信号
+	
+	\paragraph{修正效果}\hfill
+	
+	只需要将div和divu模块接口全部定义就能避免这种问题
+	
+	\begin{lstlisting}[language=verilog]
+	div_gen div(
+		.aclk                   (clk),
+		.s_axis_divisor_tdata   (alu_src2),
+		.s_axis_dividend_tdata  (alu_src1),
+		.s_axis_divisor_tready  (divisor_data_ready),
+		.s_axis_dividend_tready (dividend_data_ready),
+		.s_axis_divisor_tvalid  (div_data_valid),
+		.s_axis_dividend_tvalid (div_data_valid),
+		.m_axis_dout_tdata      (div_result),
+		.m_axis_dout_tvalid     (div_res_valid)
+	);
+	\end{lstlisting}
+
+	\paragraph{总结归纳}\hfill
+	
+	今后在遇到新的模块进行例化时要将需要操作的接口看全、注意类型和位宽，恰当使用。
+	
+	\subsubsection{错误3:除法器运算过程持续读取输入}
+	
+	\paragraph{错误现象}\hfill
+	
+	在遇到一个除法指令后，Valid和Ready信号仍然同时拉高，读取除法器输入并进行运算，接连输出多个结果。后一条乘法指令的结果被覆盖导致错误。
+	
+	\begin{figure}[h]
+		\centering
+		\includegraphics[width=1\linewidth]{pictures/valid_error.png}
+		\caption[valid\_errpr]{除法器Valid信号设置错误}
+		\label{fig:validerror}
+	\end{figure}
+	
+	
+	\paragraph{分析定位过程}\hfill
+	
+	最初留意的现象是连续两次除法运算时，后一条指令Valid和Ready信号已经读取成功，但并不开始运算。与此同时，除法器结果和前一条除法指令相同，并且m\_axis\_dout\_tvalid信号为高电平。
+	
+	多次尝试分析后才理解讲义的意思，Valid信号并不是每遇到一次Ready就拉低，而是在一次除法过程中只能拉高一次，否则会持续读取输入进行运算。
+	
+	\paragraph{错误原因}\hfill
+	
+	除法器Valid信号设置错误，在一次乘法指令中多次读取操作数输入进行运算，导致结果多次输出，可能会覆盖下一次乘法指令的结果。
+	
+	% 前面加一些乘法器代码，根据修改后的页面决定这个放在修正效果paragragh下面还是上面
+	%  别忘了修改下面“如上所示”
+	\begin{figure}[h]
+		\centering
+		\includegraphics[width=1\linewidth]{pictures/valid_correct.png}
+		\caption[Valid\_correct]{正确Valid输入信号效果}
+		\label{fig:validcorrect}
+	\end{figure}
+
+	\paragraph{修正效果}\hfill
+	
+	采用新的变量div\_valid来表示除法开始到结束的过程，在此过程中除法器Valid输入只能在最开始拉高，紧接着持续拉低，修正代码如\ref{Valid_input}中代码所示。修正后效果如上所示。
+	
+	\paragraph{总结归纳}\hfill
+	
+	在遇到AXI总线多拍实现的部件时，需要对它输入输出接口的时序又深入了解，接合实现功能进行对接和赋值。
 	
 	\section{实验总结}
 	
