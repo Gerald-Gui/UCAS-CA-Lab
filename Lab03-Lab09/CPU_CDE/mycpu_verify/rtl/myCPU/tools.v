@@ -245,23 +245,50 @@ module divider(
     reg  [63: 0]    dividend_r    [31: 0];
     wire [63: 0]    dividend_w    [31: 0];
     wire [32: 0]    divisor     = {1'b0, Y[31:0]};
+    wire [ 5: 0]    pos_dividend;
+    wire [ 5: 0]    pos_divisor;
+    wire [ 5: 0]    skip_pos;
+    wire [ 5: 0]    skip_pos_sign;
+    wire [ 5: 0]    skip_pos_mid;
 
-    reg [5:0] time_i;
+    reg  [ 5: 0]    time_i;
+    reg  [ 5: 0]    time_j;
+    reg  [ 1: 0]    time_i_added;
+    reg             dividend_added;
     always @(posedge clk) begin
-        if(rst) begin
+        if(rst || complete) begin
             time_i <= 0;
-        end else if(time_i != 6'd33 && div) begin
-            time_i <= time_i + 5'b1;
+            time_i_added <= 0;
+            dividend_added <= 0;
+        end else if(time_i != 6'd33 && div && ~time_i_added[0] && ~time_i_added[1]) begin
+            time_i_added <= time_i_added + 2'b1;
+        end else if(time_i != 6'd33 && div && time_i_added[0]) begin
+            time_i <= skip_pos;
+            time_i_added <= time_i_added + 2'b1;
+        end else if(time_i != 6'd33 && div && (time_i_added[1] & ~time_i_added[0])) begin
+            time_i <= time_i + 1;
         end else begin
             time_i <= 0;
         end
 
-        if(time_i == 0 || time_i == 1) begin
+        if(time_i == 0) begin
             dividend_r[0][63:0]    <= {32'b0, X[31:0]};
-        end else begin
-            dividend_r[time_i[5:0]-1][63:0] <= dividend_w[time_i[5:0]-2][63:0];
+        end else if(!dividend_added) begin
+            for(time_j = 1; time_j <= skip_pos && time_j < 6'd32 ; time_j = time_j + 1) begin
+                dividend_r[time_j[4:0]][63:0] <= {32'b0, X[31:0]};
+            end
+            dividend_added <= 1'b1;
+        end else if(time_i != 6'd32) begin
+            dividend_r[time_i[4:0]][63:0] <= dividend_w[time_i[4:0]-1][63:0];
         end
     end
+
+    find_64 find_first_1_in_dividend(.x(dividend_r[0]),.y(pos_dividend));
+    find_33 find_first_1_in_divisor (.x(divisor),.y(pos_divisor));
+
+    assign skip_pos_mid = pos_divisor - pos_dividend + 6'd31;
+    assign skip_pos_sign = skip_pos_mid - 6'd31;
+    assign skip_pos = skip_pos_sign[5] ? skip_pos_mid : 6'd31;
 
     genvar i;
     generate
@@ -275,6 +302,51 @@ module divider(
     assign s[31:0] = s_sign ? ~S[31:0] + 32'b1 : S[31:0];
 
     assign r[31:0] = r_sign ? ~dividend_w[31][31:0] + 32'b1 : dividend_w[31][31:0];
+endmodule
+
+module find_64 (
+    input   [63: 0]    x,
+    output  [ 5: 0]    y
+);
+    wire [31: 0]    data_32;
+    wire [15: 0]    data_16;
+    wire [ 7: 0]    data_8;
+    wire [ 3: 0]    data_4;
+    wire [ 1: 0]    data_2;
+
+    assign y[5] = |x[63:32];
+    assign data_32 = y[5] ? x[63:32] : x[31:0];
+    assign y[4] = |data_32[31:16];
+    assign data_16 = y[4] ? data_32[31:16] : data_32[15:0];
+    assign y[3] = |data_16[15:8];
+    assign data_8  = y[3] ? data_16[15:8] : data_16[7:0];
+    assign y[2] = |data_8[7:4];
+    assign data_4  = y[2] ? data_8[7:4] : data_8[3:0];
+    assign y[1] = |data_4[3:2];
+    assign data_2  = y[1] ? data_4[3:2] : data_4[1:0];
+    assign y[0] = data_2[1];
+endmodule
+
+module find_33 (
+    input   [32: 0]    x,
+    output  [5: 0]    y
+);
+
+    wire [15: 0]    data_16;
+    wire [ 7: 0]    data_8;
+    wire [ 3: 0]    data_4;
+    wire [ 1: 0]    data_2;
+
+    assign y[5] = 0;
+    assign y[4] = |x[31:16];
+    assign data_16 = y[4] ? x[31:16] : x[15:0];
+    assign y[3] = |data_16[15:8];
+    assign data_8  = y[3] ? data_16[15:8] : data_16[7:0];
+    assign y[2] = |data_8[7:4];
+    assign data_4  = y[2] ? data_8[7:4] : data_8[3:0];
+    assign y[1] = |data_4[3:2];
+    assign data_2  = y[1] ? data_4[3:2] : data_4[1:0];
+    assign y[0] = data_2[1];
 endmodule
 
 module minor (
