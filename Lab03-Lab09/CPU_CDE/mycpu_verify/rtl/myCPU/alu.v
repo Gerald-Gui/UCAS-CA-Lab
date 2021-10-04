@@ -37,14 +37,6 @@ wire  [32:0]  mul_src1;
 wire  [32:0]  mul_src2;
 reg  mul_res_sel; // 1 -> high; 0 -> low
 
-reg  div_data_valid;
-reg  divu_data_valid;
-wire divisor_data_ready;
-wire dividend_data_ready;
-wire u_divisor_data_ready;
-wire u_dividend_data_ready;
-
-
 wire [31:0] add_sub_result;
 wire [31:0] slt_result;
 wire [31:0] sltu_result;
@@ -57,13 +49,11 @@ wire [31:0] sll_result;
 wire [63:0] sr64_result;
 wire [31:0] sr_result;
 wire [63:0] mul_result;
-wire [63:0] div_result;
-wire [63:0] divu_result;
+wire [31:0] div_result;
+wire [31:0] mod_result;
 
 wire        div_res_valid;
 wire        divu_res_valid;
-
-reg         div_valid;
 
 // 32-bit adder
 wire [31:0] adder_a;
@@ -71,12 +61,6 @@ wire [31:0] adder_b;
 wire        adder_cin;
 wire [31:0] adder_result;
 wire        adder_cout;
-
-
-assign mul_src1[31:0] = alu_src1[31:0];
-assign mul_src2[31:0] = alu_src2[31:0];
-assign mul_src1[32]   = (alu_src1[31] & op_mulh);
-assign mul_src2[32]   = (alu_src2[31] & op_mulh);
 
 // control code decomposition
 assign op_add  = alu_op[ 0];
@@ -102,7 +86,6 @@ assign op_modu = alu_op[18];
 assign is_div   = op_div | op_divu | op_mod | op_modu;
 wire   use_div  = op_div | op_mod;
 wire   use_divu = op_divu| op_modu;
-assign div_finish = divu_res_valid | div_res_valid;
 
 assign adder_a   = alu_src1;
 assign adder_b   = (op_sub | op_slt | op_sltu) ? ~alu_src2 : alu_src2;  //src1 - src2 rj-rk
@@ -157,57 +140,16 @@ always @ (posedge clk) begin
     end
 end
 
-
-always @(posedge clk) begin
-    if (div_valid) begin
-        div_data_valid <= 1'b0;
-    end else if (es_valid & use_div & (~divisor_data_ready | ~dividend_data_ready)) begin
-        div_data_valid <= 1'b1;
-    end else /*if(es_valid & use_div & (divisor_data_ready & dividend_data_ready))*/ begin
-        div_data_valid <= 1'b0;
-    end
-
-  
-    if (div_valid) begin
-        divu_data_valid <= 1'b0;
-    end else if (es_valid & use_divu & (~u_divisor_data_ready | ~u_dividend_data_ready)) begin
-        divu_data_valid <= 1'b1;
-    end else /* if(es_valid & use_divu & (divisor_data_ready & dividend_data_ready)) */ begin
-        divu_data_valid <= 1'b0;
-    end
-
-    if (rst) begin
-        div_valid <= 1'b0;
-    end else if (div_res_valid | divu_res_valid) begin
-        div_valid <= 1'b0;
-    end else if ((div_data_valid & divisor_data_ready) | (divu_data_valid & u_divisor_data_ready)) begin
-        div_valid <= 1'b1;
-    end
-end
-
-
-div_gen div(
-  .aclk                   (clk),
-  .s_axis_divisor_tdata   (alu_src2),
-  .s_axis_dividend_tdata  (alu_src1),
-  .s_axis_divisor_tready  (divisor_data_ready),
-  .s_axis_dividend_tready (dividend_data_ready),
-  .s_axis_divisor_tvalid  (div_data_valid),
-  .s_axis_dividend_tvalid (div_data_valid),
-  .m_axis_dout_tdata      (div_result),
-  .m_axis_dout_tvalid     (div_res_valid)
-);
-
-div_gen_u divu(
-  .aclk                   (clk),
-  .s_axis_divisor_tdata   (alu_src2),
-  .s_axis_dividend_tdata  (alu_src1),
-  .s_axis_divisor_tready  (u_divisor_data_ready),
-  .s_axis_dividend_tready (u_dividend_data_ready),
-  .s_axis_divisor_tvalid  (divu_data_valid),
-  .s_axis_dividend_tvalid (divu_data_valid),
-  .m_axis_dout_tdata      (divu_result),
-  .m_axis_dout_tvalid     (divu_res_valid)
+divider alu_div(
+    .clk(clk),
+    .rst(rst),
+    .div(is_div),
+    .div_signed(use_div),
+    .x(alu_src1),
+    .y(alu_src2),
+    .s(div_result),
+    .r(mod_result),
+    .complete(div_finish)
 );
 
 // final result mux
@@ -223,9 +165,7 @@ assign alu_result = ({32{op_add | op_sub }} & add_sub_result)
                   | ({32{op_srl | op_sra }} & sr_result)
                   | ({32{op_mul          }} & mul_result[31:0])
                   | ({32{op_mulh|op_mulhu}} & mul_result[63:32])
-                  | ({32{op_div          }} & div_result[63:32])
-                  | ({32{op_divu         }} & divu_result[63:32])
-                  | ({32{op_mod          }} & div_result[31:0])
-                  | ({32{op_modu         }} & divu_result[31:0]);
+                  | ({32{op_div | op_divu}} & div_result[31:0])
+                  | ({32{op_mod | op_modu}} & mod_result[31:0]);
 
 endmodule
