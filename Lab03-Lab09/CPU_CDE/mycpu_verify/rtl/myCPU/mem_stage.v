@@ -26,13 +26,14 @@ wire        ms_ready_go;
 
 reg [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus_r;
 wire        ms_res_from_mul;
-wire        ms_res_from_mem;
+wire [ 4:0] ms_load_op;
 wire        ms_gr_we;
 wire [ 4:0] ms_dest;
 wire [31:0] ms_alu_result;
 wire [31:0] ms_pc;
-assign {ms_res_from_mul,  //71:71
-        ms_res_from_mem,  //70:70
+
+assign {ms_res_from_mul,  //75:75
+        ms_load_op     ,  //74:70
         ms_gr_we       ,  //69:69
         ms_dest        ,  //68:64
         ms_alu_result  ,  //63:32
@@ -42,6 +43,11 @@ assign {ms_res_from_mul,  //71:71
 wire        mul_res_sel;
 wire [31:0] mul_result;
 wire [31:0] mem_result;
+wire [31:0] load_mid;
+wire [ 4:0] load_shift;
+wire [ 7:0] load_b_data;
+wire [15:0] load_h_data;
+wire [31:0] load_result;
 wire [31:0] ms_final_result;
 
 assign ms_to_ws_bus = {ms_gr_we       ,  //69:69
@@ -71,9 +77,18 @@ assign mul_result  = mul_res_sel ? ms_mul_res_bus[63:32] :
                                    ms_mul_res_bus[31: 0];
 
 assign mem_result = data_sram_rdata;
+assign load_shift = (ms_load_op[4] || ms_load_op[1]) ? {3'b0,ms_alu_result[1:0]} << 3 :
+                        (ms_load_op[3] || ms_load_op[0]) ? {4'b0,ms_alu_result[1]} << 4 : 0;
+assign load_mid = (ms_load_op[2]) ? mem_result : mem_result >> load_shift;
+assign load_b_data = load_mid[7:0];
+assign load_h_data = load_mid[15:0];
+assign load_result = ms_load_op[4] ? {{24{load_b_data[7]}},load_b_data} :
+                        ms_load_op[3] ? {{16{load_h_data[15]}},load_h_data} :
+                            ms_load_op[1] ? {24'b0,load_b_data} :
+                                ms_load_op[0] ? {16'b0,load_h_data} : mem_result;
 
 assign ms_final_result = ms_res_from_mul ? mul_result :
-                         ms_res_from_mem ? mem_result :
+                            (|ms_load_op) ? load_result :
                                            ms_alu_result;
 
 assign ms_fwd_blk_bus = {ms_gr_we & ms_valid, ms_dest, ms_final_result};

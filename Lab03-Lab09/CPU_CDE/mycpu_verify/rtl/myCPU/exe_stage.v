@@ -39,15 +39,19 @@ wire [31:0] es_rj_value   ;
 wire [31:0] es_rkd_value  ;
 wire [31:0] es_pc         ;
 
-wire        es_res_from_mem;
+wire [31:0] store_data    ;
+
+wire [ 4:0] es_load_op;
+wire [ 2:0] es_store_op;
 wire        es_res_from_mul;
 wire        is_div;
 wire        div_finish;
 wire        waiting_ready;
 
-assign {es_alu_op      ,  //157:139
-        es_res_from_mul,  //138:138
-        es_res_from_mem,  //137:137
+assign {es_alu_op      ,  //164:146
+        es_res_from_mul,  //145:145
+        es_load_op     ,  //144:140
+        es_store_op    ,  //139:137
         es_src1_is_pc  ,  //136:136
         es_src2_is_imm ,  //135:135
         es_gr_we       ,  //134:134
@@ -64,8 +68,8 @@ wire [31:0] es_alu_src2   ;
 wire [31:0] es_alu_result ;
 
 //assign es_res_from_mem = es_load_op;
-assign es_to_ms_bus = {es_res_from_mul,
-                       es_res_from_mem,  //70:70
+assign es_to_ms_bus = {es_res_from_mul,  //75:75
+                       es_load_op     ,  //74:70
                        es_gr_we       ,  //69:69
                        es_dest        ,  //68:64
                        es_alu_result  ,  //63:32
@@ -107,14 +111,21 @@ alu u_alu(
     .mul_res_bus(es_mul_res_bus)
     );
 
-assign data_sram_en    = (es_res_from_mem || es_mem_we) && es_valid;
-assign data_sram_wen   = es_mem_we ? 4'hf : 4'h0;
+assign store_data = es_store_op[2] ? {4{es_rkd_value[ 7:0]}} :
+                            es_store_op[1] ? {2{es_rkd_value[15:0]}} :
+                                es_rkd_value[31:0];
+
+assign data_sram_en    = ((|es_load_op) || es_mem_we) && es_valid;
+assign data_sram_wen   = es_store_op[2] ? (4'h1 << data_sram_addr[1:0]) :
+                                es_store_op[1] ? (4'h3 << {data_sram_addr[1],1'b0}) :
+                                    es_store_op[0] ? 4'hf : 4'h0;
+                                
 assign data_sram_addr  = es_alu_result;
-assign data_sram_wdata = es_rkd_value;
+assign data_sram_wdata = store_data;
 
 assign es_fwd_blk_bus = {
     es_gr_we & es_valid,
-    (es_res_from_mem | es_res_from_mul) & es_valid,
+    ((|es_load_op) | es_res_from_mul) & es_valid,
     es_dest,
     es_alu_result};
 
