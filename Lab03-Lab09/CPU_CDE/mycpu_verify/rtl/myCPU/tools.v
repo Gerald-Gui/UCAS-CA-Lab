@@ -293,7 +293,7 @@ module divider(
     genvar i;
     generate
         for(i = 0; i < 32; i = i + 1) begin
-            minor div_minor(.A(dividend_r[i]), .B(divisor),.shift(i),.S(S[31-i]),.new_A(dividend_w[i]));
+            minus div_minus(.A(dividend_r[i]), .B(divisor),.shift(i),.S(S[31-i]),.new_A(dividend_w[i]));
         end
     endgenerate
 
@@ -349,7 +349,7 @@ module find_33 (
     assign y[0] = data_2[1];
 endmodule
 
-module minor (
+module minus (
     input   [63: 0]     A,
     input   [32: 0]     B,
     input   [ 6: 0]     shift,
