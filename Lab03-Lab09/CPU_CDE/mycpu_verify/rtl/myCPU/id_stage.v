@@ -143,11 +143,14 @@ wire [31:0]     rf_rdata1;
 wire [ 4:0]     rf_raddr2;
 wire [31:0]     rf_rdata2;
 
+// sigs for branch judgement
 wire            rj_eq_rd;
 wire            rj_lt_rd;
 wire            rju_lt_rdu;
-wire [32:0]     rj_minus_rd;
-wire [32:0]     rju_minus_rdu;
+
+wire regs_minus_carry;
+wire regs_minus_low;
+wire [31:0] regs_minus_res;
 
 // block && forward strategy
 wire            es_fwd_we;
@@ -399,13 +402,14 @@ assign rkd_value = es_reg2_hazard ? es_wdata :
                                     rf_rdata2;
 
 assign rj_eq_rd  = (rj_value == rkd_value);
-// assign rj_lt_rd  = ($signed(rj_value) <  $signed(rkd_value));
-// assign rju_lt_rdu= (rj_value <  rkd_value);
 
-assign rj_minus_rd   = ({rj_value[31],rj_value} + ~{rkd_value[31],rkd_value} + 1);
-assign rju_minus_rdu = ({1'b0,rj_value} + {1'b0,~rkd_value} + 1);
-assign rj_lt_rd      = rj_minor_rd[32];
-assign rju_lt_rdu    = ~rju_minor_rdu[32];
+
+assign {regs_minus_carry, regs_minus_res, regs_minus_low}
+    = {1'b1, rj_value, 1'b1} + {1'b0, ~rkd_value, 1'b1};
+assign rj_lt_rd = (rj_value[31] & ~rkd_value[31]) |
+                 ((rj_value[31] ^~ rkd_value[31]) & regs_minus_res[31]);
+assign rju_lt_rdu = regs_minus_carry;
+
 
 assign br_taken = (   (inst_beq  &&  rj_eq_rd)
                    || (inst_bne  && !rj_eq_rd)
