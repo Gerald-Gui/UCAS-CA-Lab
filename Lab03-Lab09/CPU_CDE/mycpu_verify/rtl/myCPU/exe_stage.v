@@ -111,15 +111,15 @@ alu u_alu(
     .mul_res_bus(es_mul_res_bus)
     );
 
-assign store_data = es_store_op[2] ? {4{es_rkd_value[ 7:0]}} :
-                            es_store_op[1] ? {2{es_rkd_value[15:0]}} :
-                                es_rkd_value[31:0];
+assign store_data = es_store_op[2] ? {4{es_rkd_value[ 7:0]}} :  // b
+                    es_store_op[1] ? {2{es_rkd_value[15:0]}} :  // h
+                                        es_rkd_value[31:0];     // w
 
 assign data_sram_en    = ((|es_load_op) || es_mem_we) && es_valid;
-assign data_sram_wen   = es_store_op[2] ? (4'h1 << data_sram_addr[1:0]) :
-                                es_store_op[1] ? (4'h3 << {data_sram_addr[1],1'b0}) :
-                                    es_store_op[0] ? 4'hf : 4'h0;
-                                
+assign data_sram_wen   = es_store_op[2] ? (4'h1 <<  data_sram_addr[1:0])      : // b
+                         es_store_op[1] ? (4'h3 << {data_sram_addr[1], 1'b0}) : // h
+                         es_store_op[0] ? 4'hf : 4'h0;                          // w
+
 assign data_sram_addr  = es_alu_result;
 assign data_sram_wdata = store_data;
 
