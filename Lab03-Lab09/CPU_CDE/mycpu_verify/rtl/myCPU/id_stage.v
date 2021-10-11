@@ -146,8 +146,8 @@ wire [31:0]     rf_rdata2;
 wire            rj_eq_rd;
 wire            rj_lt_rd;
 wire            rju_lt_rdu;
-wire [32:0]     rj_minor_rd;
-wire [32:0]     rju_minor_rdu;
+wire [32:0]     rj_minus_rd;
+wire [32:0]     rju_minus_rdu;
 
 // block && forward strategy
 wire            es_fwd_we;
@@ -172,7 +172,7 @@ wire            src_reg2;
 assign {es_fwd_we, es_blk_we, es_waddr, es_wdata} = es_fwd_blk_bus;
 assign {ms_fwd_we, ms_waddr, ms_wdata} = ms_fwd_blk_bus;
 
-assign src_reg1 = 1'b1;
+assign src_reg1 = ~(inst_b | inst_bl);
 assign src_reg2 = inst_add_w  | inst_sub_w  | inst_slt    | inst_sltu   |
                   inst_nor    | inst_and    | inst_or     | inst_xor    |
                   inst_st_w   | inst_beq    | inst_bne    | inst_blt    |
@@ -402,8 +402,8 @@ assign rj_eq_rd  = (rj_value == rkd_value);
 // assign rj_lt_rd  = ($signed(rj_value) <  $signed(rkd_value));
 // assign rju_lt_rdu= (rj_value <  rkd_value);
 
-assign rj_minor_rd   = ({rj_value[31],rj_value} + ~{rkd_value[31],rkd_value} + 1);
-assign rju_minor_rdu = ({1'b0,rj_value} + {1'b0,~rkd_value} + 1);
+assign rj_minus_rd   = ({rj_value[31],rj_value} + ~{rkd_value[31],rkd_value} + 1);
+assign rju_minus_rdu = ({1'b0,rj_value} + {1'b0,~rkd_value} + 1);
 assign rj_lt_rd      = rj_minor_rd[32];
 assign rju_lt_rdu    = ~rju_minor_rdu[32];
 
