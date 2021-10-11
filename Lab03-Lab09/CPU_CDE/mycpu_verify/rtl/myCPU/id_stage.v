@@ -49,7 +49,6 @@ wire [ 2:0]     store_op;
 wire            src1_is_pc;
 wire            src2_is_imm;
 wire            res_from_mul;
-wire            res_from_mem;
 wire            dst_is_r1;
 wire            gr_we;
 wire            mem_we;
@@ -373,7 +372,6 @@ assign src2_is_imm   = inst_slli_w |
                        inst_pcaddu12i;
 
 assign res_from_mul  = inst_mul_w | inst_mulh_w | inst_mulh_wu;
-assign res_from_mem  = |load_op;
 assign dst_is_r1     = inst_bl;
 assign gr_we         = ~(|store_op) & ~inst_beq & ~inst_bne & ~inst_bge & ~inst_bgeu & ~inst_blt & ~inst_bltu & ~inst_b;
 assign mem_we        = |store_op;

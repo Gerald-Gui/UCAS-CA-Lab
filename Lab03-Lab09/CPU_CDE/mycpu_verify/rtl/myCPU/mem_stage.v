@@ -86,11 +86,6 @@ assign load_signed = ms_load_op[4] | ms_load_op[3];
 assign mem_result = data_sram_rdata;
 assign load_b_data = mem_result[{ms_alu_result[1:0], 3'b0}+:8];
 assign load_h_data = mem_result[{ms_alu_result[1],   4'b0}+:16];
-// assign load_result = ms_load_op[4] ? {{24{load_b_data[ 7]}},load_b_data} :  // b
-//                      ms_load_op[3] ? {{16{load_h_data[15]}},load_h_data} :  // h
-//                      ms_load_op[1] ? {24'b0,                load_b_data} :  // bu
-//                      ms_load_op[0] ? {16'b0,                load_h_data} :  // hu
-//                                                             mem_result;     // w
 assign load_result = {32{load_byte}} & {{24{load_b_data[ 7] & load_signed}}, load_b_data} |
                      {32{load_half}} & {{16{load_h_data[15] & load_signed}}, load_h_data} |
                      {32{load_word}} & mem_result;

@@ -33,8 +33,6 @@ wire op_divu;   //fetch mod
 wire op_mod;    //fetch mod
 wire op_modu;   //fetch mod
 
-wire  [32:0]  mul_src1;
-wire  [32:0]  mul_src2;
 reg  mul_res_sel; // 1 -> high; 0 -> low
 
 wire [31:0] add_sub_result;
