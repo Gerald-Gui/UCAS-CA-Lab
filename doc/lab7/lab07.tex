@@ -95,7 +95,8 @@
 	9条算术逻辑运算类指令的实现主要复用此前流水线中已实现的部分指令功能。\texttt{slti, sltui, andi, ori, xori}指令分别复用\texttt{slt, sltu, and, or, xor}指令数据通路，处理立即数内容与相关控制信号即可。\texttt{sll, srl, sra}指令分别复用\texttt{slli, srli, srai}指令数据通路，调整操作数来源与相关控制信号即可。\texttt{pcaddu12i}指令主要通路复用\texttt{add}指令，操作数处理上来自PC寄存器与\texttt{lu12i}指令结果。由于此部分几乎全部为对已有数据通路的复用，仅添加了部分控制信号，故而本篇报告中不再详述该部分的实现细节。
 	
 	% TODO：修改除法器实现
-	7条乘除法运算类指令中，乘法的处理我们使用自己编写的流水化乘法器，在两拍内计算出乘法结果；除法与取模的处理我们选择调用Xilinx IP定制除法器运算部件进行实现。具体运算的进行在ALU部件中完成，由于引入了新的运算与相关控制信号，需要维护流水级间的寄存器宽度、\texttt{alu\_op}宽度以及流水线控制的部分信号。
+	% DONE:：完成修改
+	7条乘除法运算类指令中，乘法的处理我们使用自己编写的流水化乘法器，在两拍内计算出乘法结果；除法与取模的处理我们经历了三个设计阶段：（1）选择调用Xilinx IP定制除法器运算部件进行实现；（2）使用笔者自己完成的基于恢复余数法的迭代除法器；（3）使用经过加速迭代优化的除法器。除法运算的进行在ALU部件中完成，由于引入了新的运算与相关控制信号，需要维护流水级间的寄存器宽度、\texttt{alu\_op}宽度以及流水线控制的部分信号。
 	
 	4条条件转移指令的功能类比已实现的\texttt{beq、bne}指令，在译码级引入对大小的判断，具体大小判断的实现参考ALU中\texttt{slt}与\texttt{sltu}操作的实现。对转移信号的逻辑修改同样参考\texttt{beq、bne}指令即可。
 	
@@ -266,6 +267,263 @@
 
 	除法器实例化连接后，对于结果直接取$[63:32]$位作为商，$[31:0]$作为余数。
 	
+	\subsection{自行设计实现除法器}
+	
+	\subsubsection{功能描述}
+	
+	根据讲义的方法，按照绝对值恢复余数除法，设计实现了固定34个时钟周期完成有无符号除法运算的除法器。
+	
+	\subsubsection{接口定义}
+	
+	因为首先单独设计除法器，使用给出的test\_bench.v进行正确性验证，因此接口定义按照test\_bench.v的调用方式，在alu中使用也按照相同的方式。接口如下：
+	
+	\begin{table}[!h]
+		\begin{center}
+			\caption{自行设计除法器接口定义}
+			\begin{tabularx}{\textwidth}{|c|c|c|Y|}
+				\hline
+				\textbf{接口} & \textbf{I/O} & \textbf{位宽} & \textbf{说明} \\
+				\hline
+				\texttt{clk} & \textsc{In} & 1 & 时钟驱动，迭代除法 \\
+				\hline
+				\texttt{rst} & \textsc{In} & 1 & 复位信号，重新开始除法 \\
+				\hline
+				\texttt{div} & \textsc{In} & 1 & 是否开始进行除法 \\
+				\hline
+				\texttt{div\_signed} & \textsc{In} & 1 & 是否采用有符号除法 \\
+				\hline
+				\texttt{x} & \textsc{In} & 32 & 被除数输入 \\
+				\hline
+				\texttt{y} & \textsc{In} & 32 & 除数输入 \\
+				\hline
+				\texttt{s} & \textsc{Out} & 32 & 商结果输出 \\
+				\hline
+				\texttt{r} & \textsc{Out} & 32 & 余数结果输出 \\
+				\hline
+				\texttt{complete} & \textsc{Out} & 1 & 输出是否有效，当前除法是否算完 \\
+				\hline
+			\end{tabularx}
+		\end{center}
+	\end{table}
+
+	\paragraph{使用实例}\hfill
+	
+	举出在alu中使用该除法器替代IP核除法器的示例，注意可以将AXI总线相关控制逻辑删除。
+	
+	\begin{lstlisting}[language=verilog]
+		divider alu_div(
+			.clk(clk),
+			.rst(rst),
+			.div(is_div),
+			.div_signed(use_div),
+			.x(alu_src1),
+			.y(alu_src2),
+			.s(div_result),
+			.r(mod_result),
+			.complete(div_finish)
+		);
+	\end{lstlisting}
+
+	\subsubsection{工作原理}
+	
+	\paragraph{绝对值处理}\hfill
+	
+	首先对有符号除法运算中负数取绝对值后统一做无符号运算，记录这一信息，最后再由讲义提供的符号位规则表进行恢复：
+	
+	\begin{lstlisting}[language=verilog]
+		// at beginning
+		wire [31:0] X;
+		wire [31:0] Y;
+		
+		wire dividend_sign  = div_signed & x[31];
+		wire divisor_sign   = div_signed & y[31];
+		wire s_sign         = dividend_sign ^ divisor_sign;
+		wire r_sign         = dividend_sign;
+		
+		assign X[31:0]      = (dividend_sign ? ~x[31:0]+1 : x[31:0]);
+		assign Y[31:0]      = (divisor_sign  ? ~y[31:0]+1 : y[31:0]);
+		
+		// in the end
+		assign s[31:0] = s_sign ? ~S[31:0] + 32'b1 : S[31:0];
+		assign r[31:0] = r_sign ? ~dividend_w[31][31:0] + 32'b1 : dividend_w[31][31:0];
+	\end{lstlisting}
+
+	\paragraph{准备时序迭代}\hfill
+	
+	思路很简单，因为核心模块为在滑动窗口内完成减法，每次的结果充当下一次输入，因为要符合时序，满足多周期完成除法，因此使用reg类型数组作为每次例化的输入，wire类型数组作为每次例化输出，每当时钟上升沿可以更新上层迭代时即可将wire结果赋值到下一层的reg输入。以变量\texttt{time\_i}作为开始和结束以及每一轮进行迭代层数的标志。
+	
+	\begin{lstlisting}[language=verilog]
+		reg [5:0] time_i;
+		always @(posedge clk) begin
+			if(rst) begin
+				time_i <= 0;
+			end else if(time_i != 6'd33 && div) begin
+				time_i <= time_i + 5'b1;
+			end else begin
+				time_i <= 0;
+			end
+			
+			if(time_i == 0 || time_i == 1) begin
+				dividend_r[0][63:0]    <= {32'b0, X[31:0]};
+			end else begin
+				dividend_r[time_i[5:0]-1][63:0] <= dividend_w[time_i[5:0]-2][63:0];
+			end
+		end
+		
+		genvar i;
+		generate
+			for(i = 0; i < 32; i = i + 1) begin
+				minus div_minus(.A(dividend_r[i]), .B(divisor),.shift(i),.S(S[31-i]),.new_A(dividend_w[i]));
+			end
+		endgenerate
+	\end{lstlisting}
+
+	\paragraph{滑动窗口迭代逻辑}\hfill
+	
+	根据恢复余数法，每次扩展被除数的滑动窗口与扩展除数做减法，若结果为负数，则说明不够减，商对应位置为0，仍然用被除数进行下一次减法；若结果为正数，则说明够减，商对应位置为1，此时将余数更新到滑动窗口，提供给下一次减法。
+	
+	在笔者的设计中，为方便在模块例化时使用\texttt{generate}，需要避免位拼接操作，使用\texttt{shift}替代。每次传入和输出都可以直接为64位，也方便了时序赋值，而在减法模块中，使用\texttt{src1}作为被除数33位的滑动窗口，更新结果时使用\texttt{clear, res\_assign}，前者清除被除数对应位置，后者将减法的33位结果移到对应窗口位置，进行先与后或即可完成。
+	
+	\begin{lstlisting}[language=verilog]
+		module minus (
+		input   [63: 0]     A,
+		input   [32: 0]     B,
+		input   [ 6: 0]     shift,
+		output              S,
+		output  [63: 0]     new_A
+		);
+		
+			wire [32: 0]    src1;
+			wire [63: 0]    src1_mid;
+			wire [32: 0]    res;
+			wire [63: 0]    clear;
+			wire [63: 0]    res_assign;
+			
+			assign src1_mid = A[63:0] << shift;
+			assign src1 = src1_mid[63:31];
+			assign res = src1[32: 0] - B[32: 0];
+			
+			assign S = ~res[32];
+			
+			assign clear[63:0] = (S ? ((shift == 7'b0) ? {33'b0,31'h7fffffff} : {1'b1,33'b0,30'h3fffffff} >>> (shift-1)) : 64'hffffffff);
+			
+			assign res_assign[63:0] = (S ? {31'b0, res[32:0]} << (31-shift) : 64'b0);
+			
+			assign new_A = (A & clear | res_assign);
+		endmodule
+	\end{lstlisting}
+
+	\paragraph{除法完成判断}\hfill
+	
+	既然reg型变量\texttt{time\_i}代表当前迭代层数，因此当层数达到，数组填充、商最低位计算完成后即可拉高\texttt{complete}：
+	
+	\begin{lstlisting}[language=verilog]
+		assign complete = (time_i == 6'd33);
+	\end{lstlisting}
+
+	\paragraph{仿真时序结果}\hfill
+	
+	\begin{figure}[!h]
+		\centering
+		\includegraphics[width=1\linewidth]{figures/div_DIY.png}
+		\caption{自行设计除法器仿真时序结果}
+		\label{fig:divdiy}
+	\end{figure}
+
+	\subsection{除法器优化}
+	
+	\subsubsection{功能描述}
+	
+	由仿真时序图\ref{fig:divdiy}可以明显看到，按照讲义给出的算法，由于被除数前添加32个0，最初滑动窗口形成的被减数很小，在一般的概率条件下，直到很多轮迭代之后才可能和减数具有相同大小，出现1为结果、使用减法结果替换滑动窗口的情况，在此之前，扩展被除数并不会改变。因此，优化方向便是需要提前开始有意义（以1为结果）的减法，在得到正确结果后提前结束。
+	
+	由于只是在除法器顶层模块修改算法，并不需要改变接口，接口定义与使用方法与上相同。
+	
+	\subsubsection{工作原理}
+	
+	\paragraph{寻找最高有效位}\hfill
+	
+	所谓有效位即为1的位置。由以上对于优化方向的简述，我们需要定位何时被减数能够与减数“相抗衡”，即最高有效位在同一位置。笔者使用二分法进行迭代，十分巧妙找出最高有效位。
+	
+	\begin{lstlisting}[language=verilog]
+		module find_64 (
+			input   [63: 0]    x,
+			output  [ 5: 0]    y
+		);
+		
+			wire [31: 0]    data_32;
+			wire [15: 0]    data_16;
+			wire [ 7: 0]    data_8;
+			wire [ 3: 0]    data_4;
+			wire [ 1: 0]    data_2;
+			
+			assign y[5] = |x[63:32];
+			assign data_32 = y[5] ? x[63:32] : x[31:0];
+			assign y[4] = |data_32[31:16];
+			assign data_16 = y[4] ? data_32[31:16] : data_32[15:0];
+			assign y[3] = |data_16[15:8];
+			assign data_8  = y[3] ? data_16[15:8] : data_16[7:0];
+			assign y[2] = |data_8[7:4];
+			assign data_4  = y[2] ? data_8[7:4] : data_8[3:0];
+			assign y[1] = |data_4[3:2];
+			assign data_2  = y[1] ? data_4[3:2] : data_4[1:0];
+			assign y[0] = data_2[1];
+		endmodule
+	\end{lstlisting}
+
+	这里以64位算法为例，因为需要频繁位操作以及需要使用对数函数展开，不方便使用\texttt{generate}或者利用\texttt{parameter}做出一个具有通用性的查找器。如上代码所示，每次进行左右二分，进行按位或，将结果对应位置位，而后取左半或者右半作为下一次迭代的输入即可。
+	
+	\paragraph{一次性初始化赋值加速迭代}\hfill
+	
+	得到被除数和除数最高有效位位置的差\texttt{skip\_pos}之后，可以一次性赋值迭代减法器输入数组的低\texttt{skip\_pos}位，这里放在时序逻辑中使用\texttt{for}循环完成赋值，需要注意某些边界问题，比如是否可以加速的位数超过了32，即数组的容量。但有些边界是模糊的，与优化的程度好坏有关。
+	
+	\begin{lstlisting}[language=verilog]
+		reg  [ 5: 0]    time_i;
+		reg  [ 5: 0]    time_j;
+		reg  [ 1: 0]    time_i_added;
+		reg             dividend_added;
+		always @(posedge clk) begin
+			if(rst || complete) begin
+				time_i <= 0;
+				time_i_added <= 0;
+				dividend_added <= 0;
+			end else if(time_i != 6'd33 && div && ~time_i_added[0] && ~time_i_added[1]) begin
+				time_i_added <= time_i_added + 2'b1;
+			end else if(time_i != 6'd33 && div && time_i_added[0]) begin
+				time_i <= skip_pos;
+				time_i_added <= time_i_added + 2'b1;
+			end else if(time_i != 6'd33 && div && (time_i_added[1] & ~time_i_added[0])) begin
+				time_i <= time_i + 1;
+			end else begin
+				time_i <= 0;
+			end
+			
+			if(time_i == 0) begin
+				dividend_r[0][63:0]    <= {32'b0, X[31:0]};
+			end else if(!dividend_added) begin
+				for(time_j = 1; time_j <= skip_pos && time_j < 6'd32 ; time_j = time_j + 1) begin
+					dividend_r[time_j[4:0]][63:0] <= {32'b0, X[31:0]};
+				end
+				dividend_added <= 1'b1;
+			end else if(time_i != 6'd32) begin
+				dividend_r[time_i[4:0]][63:0] <= dividend_w[time_i[4:0]-1][63:0];
+			end
+		end
+	\end{lstlisting}
+
+	上述代码中所谓\texttt{time\_j}所在的循环语句即为加速赋值的核心语句，注意在加速赋值结束之后，仍然需要按照原先正常的除法器时序往下走，因此对\texttt{time\_i}，增加了一个2位的变量来判断当前状态，若刚进行初始化，则增1开始除法，若未加速赋值，则跳转到赋值后的迭代层，若已加速赋值，则每拍增1，直到完成除法。
+	
+	\paragraph{仿真时序图}\hfill
+	
+	\begin{figure}[h]
+		\centering
+		\includegraphics[width=1\linewidth]{figures/div_acc.png}
+		\caption{加速后除法器仿真时序结果}
+		\label{fig:divacc}
+	\end{figure}
+
+	通过仿真结果发现，优化后除法器平均8拍即可完成一次除法，性能提升3倍有余。
+	
+	
 	\subsection{转移指令的添加}
 	增添的四条转移指令为\texttt{blt, bge, bltu, bgeu}，需添加有无符号下的$ < $判断，$ \geqslant $结果对$ < $结果取反即可。
 	
@@ -337,24 +595,27 @@ assign load_result = {32{load_byte}} & {{24{load_b_data[7] & load_signed}},load_
 	该问题来自对乘法器流水化导致的时序问题认识不足，意味着在设计时未能准确完善地把握控制信号的维护与传递。
 	
 	% TODO:除法器debug	
-	\subsubsection{错误\textbf{2:}除法器aclk信号未接入}
+	%DONE：除法器等debug
+	\subsubsection{错误\textbf{2:}除法器IP核使用错误}
 	
-	\paragraph{错误现象}\hfill
+	\paragraph{错误\textbf{2.1:}除法器aclk信号未接入}\hfill
+	
+	\subparagraph{错误现象}\hfill
 	
 	除法一直阻塞在exe流水级，div模块中aclk显示黄色U，s\_axis\_divisor\_tready信号始终未能拉高。
 	
 	\begin{figure}[h]
 		\centering
-		\includegraphics[width=0.7\linewidth]{no_aclk.png}
+		\includegraphics[width=0.85\linewidth]{no_aclk.png}
 		\caption[no\_aclk]{除法器aclk信号悬空}
 		\label{fig:noaclk}
 	\end{figure}
 	
-	\paragraph{分析定位过程 \& 错误原因}\hfill
+	\subparagraph{分析定位过程 \& 错误原因}\hfill
 	
 	因为错误为除法指令，去查看div模块如何出错，发现一个未赋值信号
 	
-	\paragraph{修正效果}\hfill
+	\subparagraph{修正效果}\hfill
 	
 	只需要将div和divu模块接口全部定义就能避免这种问题
 	
@@ -372,13 +633,13 @@ assign load_result = {32{load_byte}} & {{24{load_b_data[7] & load_signed}},load_
 	);
 	\end{lstlisting}
 
-	\paragraph{总结归纳}\hfill
+	\subparagraph{总结归纳}\hfill
 	
 	今后在遇到新的模块进行例化时要将需要操作的接口看全、注意类型和位宽，恰当使用。
 	
-	\subsubsection{错误\textbf{3:}除法器运算过程持续读取输入}
+	\paragraph{错误\textbf{2.2:}除法器运算过程持续读取输入}\hfill
 	
-	\paragraph{错误现象}\hfill
+	\subparagraph{错误现象}\hfill
 	
 	在遇到一个除法指令后，Valid和Ready信号仍然同时拉高，读取除法器输入并进行运算，接连输出多个结果。后一条乘法指令的结果被覆盖导致错误。
 	
@@ -390,13 +651,13 @@ assign load_result = {32{load_byte}} & {{24{load_b_data[7] & load_signed}},load_
 	\end{figure}
 	
 	
-	\paragraph{分析定位过程}\hfill
+	\subparagraph{分析定位过程}\hfill
 	
 	最初留意的现象是连续两次除法运算时，后一条指令Valid和Ready信号已经读取成功，但并不开始运算。与此同时，除法器结果和前一条除法指令相同，并且m\_axis\_dout\_tvalid信号为高电平。
 	
 	多次尝试分析后才理解讲义的意思，Valid信号并不是每遇到一次Ready就拉低，而是在一次除法过程中只能拉高一次，否则会持续读取输入进行运算。
 	
-	\paragraph{错误原因}\hfill
+	\subparagraph{错误原因}\hfill
 	
 	除法器Valid信号设置错误，在一次乘法指令中多次读取操作数输入进行运算，导致结果多次输出，可能会覆盖下一次乘法指令的结果。
 	
@@ -407,18 +668,190 @@ assign load_result = {32{load_byte}} & {{24{load_b_data[7] & load_signed}},load_
 		\label{fig:validcorrect}
 	\end{figure}
 
-	\paragraph{修正效果}\hfill
+	\subparagraph{修正效果}\hfill
 	
 	采用新的变量div\_valid来表示除法开始到结束的过程，在此过程中除法器Valid输入只能在最开始拉高，紧接着持续拉低，修正代码如\ref{Valid_input} 中代码所示。修正后效果如下页所示。
 	
-	\paragraph{总结归纳}\hfill
+	\subparagraph{总结归纳}\hfill
 	
 	在遇到AXI总线多拍实现的部件时，需要对它输入输出接口的时序又深入了解，接合实现功能进行对接和赋值。
 	
+	\subsubsection{错误\textbf{3:}除法器设计实现错误}
+	
+	\paragraph{错误\textbf{3.1:}除法器中减法器清除窗口设置错误}
+	
+	\subparagraph{错误现象}\hfill
+	
+	第一个减法器即计算错误，上商为0按理不应该改变被除数，但是清除窗口将其改变为\texttt{64'h1}：
+	
+	\begin{figure}[h]
+		\centering
+		\includegraphics[width=0.85\linewidth]{figures/div_error_clear.png}
+		\caption{清除窗口设置错误}
+		\label{fig:diverrorclear}
+	\end{figure}
+	
+	\subparagraph{分析定位过程}\hfill
+	
+	只需要仔细查看第一个减法器的信号即可发现主要错误是由\texttt{clear}清除信号引起，反查代码：
+	
+	\begin{lstlisting}[language=verilog]
+		assign clear[63:0] = (S ? ((shift == 7'b0) ? {33'b0,31'h1} : {1'b1,33'b0,30'h1} >>> (shift-1)) : 64'h1);
+	\end{lstlisting}
+
+	发现明显错误，笔者本意是33个0和31个1拼起来，但实现起来却成了31位数1。
+	
+	\subparagraph{错误原因}\hfill
+	
+	减法器清除窗口设置错误，位拼接中位复制实现错误。
+	
+	\subparagraph{修正效果}\hfill
+	
+	正确实现目的即可，提供两种修改方案：
+	
+	\begin{lstlisting}[language=verilog]
+		assign clear[63:0] = (S ? ((shift == 7'b0) ? {33'b0,{31{1'b1}}} : {1'b1,33'b0,{30{1'b1}}} >>> (shift-1)) : {64{1'b1}});
+		
+		assign clear[63:0] = (S ? ((shift == 7'b0) ? {33'b0,31'h7fffffff} : {1'b1,33'b0,30'h3fffffff} >>> (shift-1)) : 64'hffffffff);
+		
+		// both OK
+	\end{lstlisting}
+	
+	\subparagraph{总结归纳}\hfill
+	
+	对于位复制和n位数的实现语法需要多记忆，属于低级错误。
+	
+	\paragraph{错误\textbf{3.2:}查找最高有效位算法实现错误}
+	
+	\subparagraph{错误现象}\hfill
+	
+	由于属于优化算法力度问题，在一些测试点并不会触发错误，但是某些测试点会出现结果错误，仔细反差，出错点及其之前的最高有效位计算结果错误。
+	
+	\begin{figure}[h]
+		\centering
+		\includegraphics[width=0.85\linewidth]{figures/div_highest.png}
+		\caption{查找最高有效位错误}
+		\label{fig:divhighest}
+	\end{figure}
+	
+	\subparagraph{分析定位过程}\hfill
+	
+	因为发现出错点加速初始化赋值过多，想到可能是最高有效位置差计算错误，查看最高有效位计算算法发现最后一位计算并不满足规律性特点，设计错误：
+	
+	\begin{lstlisting}[language=verilog]
+		wire [31: 0]    data_32;
+		wire [15: 0]    data_16;
+		wire [ 7: 0]    data_8;
+		wire [ 3: 0]    data_4;
+		
+		assign y[5] = |x[63:32];
+		assign data_32 = y[5] ? x[63:32] : x[31:0];
+		assign y[4] = |data_32[31:16];
+		assign data_16 = y[4] ? data_32[31:16] : data_32[15:0];
+		assign y[3] = |data_16[15:8];
+		assign data_8  = y[3] ? data_16[15:8] : data_16[7:0];
+		assign y[2] = |data_8[7:4];
+		assign data_4  = y[2] ? data_8[7:4] : data_8[3:0];
+		assign y[1] = |data_4[3:2];
+		assign y[0] = |data_4[1:0];
+	\end{lstlisting}
+	
+	仔细思考，\texttt{y[1],y[0]}的赋值并不满足算法。以为只要\texttt{y[1]}为1，则\texttt{data\_4}剩余位为0，\texttt{y[0]}不会取1。
+	
+	\subparagraph{错误原因}\hfill
+	
+	算法实现在末尾边界值错误，考虑轻率。
+	
+	\subparagraph{修正效果}\hfill
+	
+	根据算法及代码规律性，增加2位\texttt{data\_2}信号，重新计算末位：
+	
+	\begin{lstlisting}[language=verilog]
+		wire [31: 0]    data_32;
+		wire [15: 0]    data_16;
+		wire [ 7: 0]    data_8;
+		wire [ 3: 0]    data_4;
+		wire [ 1: 0]    data_2;
+		
+		assign y[5] = |x[63:32];
+		assign data_32 = y[5] ? x[63:32] : x[31:0];
+		assign y[4] = |data_32[31:16];
+		assign data_16 = y[4] ? data_32[31:16] : data_32[15:0];
+		assign y[3] = |data_16[15:8];
+		assign data_8  = y[3] ? data_16[15:8] : data_16[7:0];
+		assign y[2] = |data_8[7:4];
+		assign data_4  = y[2] ? data_8[7:4] : data_8[3:0];
+		assign y[1] = |data_4[3:2];
+		assign data_2  = y[1] ? data_4[3:2] : data_4[1:0];
+		assign y[0] = data_2[1];
+	\end{lstlisting}
+	
+	\subparagraph{总结归纳}\hfill
+	
+	对于设计算法的末尾边界计算情况不能想当然，需要考虑清晰。
+
+	\subsubsection{错误\textbf{3：}访存操作存取半字控制信号错误}
+	\paragraph{错误现象}\hfill
+	
+	%	四级节标题后面的\hfill与空行不可省略，不然节内容会跟着标题，目前我也只会这方法处理
+	
+	存访半字指令执行结果错误，标准结果为0x00004932：
+	
+	\begin{figure}[h]
+		\centering
+		\includegraphics[width=0.85\linewidth]{figures/ldh_sth.png}
+		\caption{存取半字控制信号错误}
+		\label{fig:ldhsth}
+	\end{figure}
+	
+	\paragraph{分析定位过程}\hfill
+	
+	咨询组员了解到存访半字使用的媒介控制信号为alu计算结果（访存地址的倒数第二位），而非最后一位。
+	
+	\paragraph{错误原因}\hfill
+	
+	存访半字控制信号使用错误，导致未能取到正确的半字。
+	
+	\begin{lstlisting}
+		// store
+		assign data_sram_wen   = 
+				es_store_op[2] ? (4'h1 <<  es_alu_result[1:0])      : // b
+				es_store_op[1] ? (4'h3 << es_alu_result[0]) : // h ERROR
+				es_store_op[0] ? 4'hf : 4'h0;                          // w
+		
+		// load
+		assign load_b_data = mem_result[{ms_alu_result[1:0], 3'b0}+:8];
+		assign load_h_data = mem_result[ms_alu_result[0]+:16];	// h ERROR
+		assign load_result = 
+				{32{load_byte}} & {{24{load_b_data[ 7] & load_signed}}, load_b_data} |
+				{32{load_half}} & {{16{load_h_data[15] & load_signed}}, load_h_data} |
+				{32{load_word}} & mem_result;
+	\end{lstlisting}
+	
+	\paragraph{修正效果}\hfill
+	
+	使用访存地址倒数第二位进行操作，\texttt{load, store}操作都需要改变：
+	
+	\begin{lstlisting}
+		// store
+		assign data_sram_wen 
+			= es_store_op[2] ? (4'h1 <<  es_alu_result[1:0])      : // b
+				es_store_op[1] ? (4'h3 << {es_alu_result[1], 1'b0}) : // h
+				es_store_op[0] ? 4'hf : 4'h0;                          // w
+												 
+		// load
+		assign load_b_data = mem_result[{ms_alu_result[1:0], 3'b0}+:8];
+		assign load_h_data = mem_result[{ms_alu_result[1],   4'b0}+:16];
+	\end{lstlisting}
+	
+	\paragraph{归纳总结}\hfill
+	
+	该问题由于设计经验和基础知识不足，讲义未明确说明存访半字使用的控制信息，今后会先查阅相关资料，了解设计原理和相关使用约定后进行设计实验。
+	
 	\section{实验总结}
 	
-	运算类指令的主要实现复用此前实现的数据通路，特别注意乘除法导致的时序问题即可。转移、访存两类指令的大体实现思路同样基于已有的数据通路，具体实现细节上存在一定打磨钻研空间。
+	运算类指令的主要实现复用此前实现的数据通路，特别注意乘除法导致的时序问题即可，使用自行设计的乘除法器非常锻炼能力，并且当性能获得大幅度提升后成就感很高。转移、访存两类指令的大体实现思路同样基于已有的数据通路，具体实现细节上存在一定打磨钻研空间。
 	
-	时序满足上，在除法器使用Xilinx IP时，乘法器使用Xilinx IP(即 * 号)时WNS为0.162\,ns，使用自行设计的单周期乘法器时WNS为0.073\,ns，将乘法器流水化后WNS（两拍完成乘法）为1.200\,ns。
+	时序满足上，（1）在除法器使用Xilinx IP时，乘法器使用Xilinx IP(即 * 号)时WNS为0.162\,ns，使用自行设计的单周期乘法器时WNS为0.073\,ns，将乘法器流水化后WNS（两拍完成乘法）为1.200\,ns；（2）在使用自行设计34拍除法器替换Xilinx IP，并在乘法器流水化条件下，WNS为0.008\,ns（3）当使用优化后的除法器，其余条件相同情况下，WNS为0.106\,ns。可见由于增加多个组合逻辑模块，且在硬件设计上未能充分优化，导致性能变差。
 	
 \end{document}
