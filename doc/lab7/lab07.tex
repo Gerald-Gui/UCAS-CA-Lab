@@ -40,6 +40,9 @@
 \CTEXsetup[format={\raggedright\heiti\quad\zihao{-4}},numberformat={\bfseries}]{subsubsection}
 \CTEXsetup[format={\raggedright\heiti\qquad},numberformat={\bfseries}]{paragraph}
 \CTEXsetup[beforeskip=1.0ex plus 0.2ex minus .2ex, afterskip=1.0ex plus 0.2ex minus .2ex]{paragraph}
+
+\CTEXsetup[format={\raggedright\heiti\qquad},numberformat={\bfseries},name={\bfseries(,)}]{subparagraph}
+\CTEXsetup[beforeskip=1.0ex plus 0.2ex minus .2ex, afterskip=1.0ex plus 0.2ex minus .2ex]{subparagraph}
 \renewcommand\thefootnote{\ding{\numexpr171+\value{footnote}}}
 
 \setstretch{1.5}
@@ -54,9 +57,10 @@
 \newcommand*{\mcelsius}{\mathop{}\!{^\circ}\mathrm{C}}
 \renewcommand*{\Im}{\mathrm{Im}\,}
 
-\setcounter{secnumdepth}{4}
+\setcounter{secnumdepth}{5}
 
 \renewcommand\arraystretch{1.5}
+\renewcommand\thesubparagraph{\arabic{subparagraph}}
 
 \lstset{
 	backgroundcolor=\color[RGB]{245,245,245},
@@ -821,7 +825,7 @@ assign load_result = {32{load_byte}} & {{24{load_b_data[7] & load_signed}},load_
 		
 		// load
 		assign load_b_data = mem_result[{ms_alu_result[1:0], 3'b0}+:8];
-		assign load_h_data = mem_result[ms_alu_result[0]+:16];	// h ERROR
+		assign load_h_data = mem_result[{1'b0,ms_alu_result[0],3'b0}+:16];	// h ERROR
 		assign load_result = 
 				{32{load_byte}} & {{24{load_b_data[ 7] & load_signed}}, load_b_data} |
 				{32{load_half}} & {{16{load_h_data[15] & load_signed}}, load_h_data} |
@@ -853,5 +857,8 @@ assign load_result = {32{load_byte}} & {{24{load_b_data[7] & load_signed}},load_
 	运算类指令的主要实现复用此前实现的数据通路，特别注意乘除法导致的时序问题即可，使用自行设计的乘除法器非常锻炼能力，并且当性能获得大幅度提升后成就感很高。转移、访存两类指令的大体实现思路同样基于已有的数据通路，具体实现细节上存在一定打磨钻研空间。
 	
 	时序满足上，（1）在除法器使用Xilinx IP时，乘法器使用Xilinx IP(即 * 号)时WNS为0.162\,ns，使用自行设计的单周期乘法器时WNS为0.073\,ns，将乘法器流水化后WNS（两拍完成乘法）为1.200\,ns；（2）在使用自行设计34拍除法器替换Xilinx IP，并在乘法器流水化条件下，WNS为0.008\,ns（3）当使用优化后的除法器，其余条件相同情况下，WNS为0.106\,ns。可见由于增加多个组合逻辑模块，且在硬件设计上未能充分优化，导致性能变差。
+	
+	在整体运行性能上，对于lab7的测试环境，使用流水化的乘法器，当除法器调用Xilinx IP时仿真用时为1403355\,ns，使用自行设计的器件时仿真用时1188055\,ns，整体加速比为
+	\[\left(\frac{1188055\,\mathrm{ns}}{1403355\,\mathrm{ns}}\right)^{-1}=1.181\]
 	
 \end{document}
