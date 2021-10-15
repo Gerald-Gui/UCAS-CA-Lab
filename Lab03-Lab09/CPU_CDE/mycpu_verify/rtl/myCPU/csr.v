@@ -187,7 +187,11 @@ module csr(
             end
         end
     end
-    assign csr_save_rval = csr_save_data;
+    // assign csr_save_rval = csr_save_data;
+    assign csr_save_rval[0] = csr_save_data[0];
+    assign csr_save_rval[1] = csr_save_data[1];
+    assign csr_save_rval[2] = csr_save_data[2];
+    assign csr_save_rval[3] = csr_save_data[3];
 
     /*
      * CSR output logic

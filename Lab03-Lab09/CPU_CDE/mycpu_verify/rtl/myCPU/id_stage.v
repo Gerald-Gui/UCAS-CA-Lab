@@ -270,7 +270,7 @@ assign ds_to_es_bus = {ds_csr_we   ,  //251:251
                       };
 
 // with blk
-assign ds_ready_go    = ~es_blk | ~csr_blk;
+assign ds_ready_go    = ~(es_blk | csr_blk);
 
 assign ds_allowin     = !ds_valid || ds_ready_go && es_allowin;
 assign ds_to_es_valid = ds_valid && ds_ready_go;
@@ -536,7 +536,7 @@ assign {es_csr_we, es_eret, es_csr_wnum} = es_csr_blk_bus;
 assign {ms_csr_we, es_eret, es_csr_wnum} = ms_csr_blk_bus;
 assign {ws_csr_we, es_eret, es_csr_wnum} = ws_csr_blk_bus;
 
-assign csr_blk = es_csr_re & (es_csr_blk | ms_csr_blk | ws_csr_blk);
+assign csr_blk = ds_csr_re & (es_csr_blk | ms_csr_blk | ws_csr_blk);
 assign es_csr_blk = es_csr_we &&  csr_rnum == es_csr_wnum ||
                     es_eret   &&  csr_rnum == `CSR_CRMD   ||
                     inst_ertn && (es_csr_wnum == `CSR_ERA || es_csr_wnum == `CSR_PRMD);
