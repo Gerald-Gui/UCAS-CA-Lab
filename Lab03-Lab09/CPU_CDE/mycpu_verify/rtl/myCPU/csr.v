@@ -70,7 +70,8 @@ module csr(
                            ~csr_wmask[`CSR_CRMD_IE]  & csr_crmd_ie;
         end
     end
-    assign csr_crmd_rval = {29'b0, csr_crmd_ie, csr_crmd_plv};
+    // set DA to 1
+    assign csr_crmd_rval = {28'b0, 1'b1, csr_crmd_ie, csr_crmd_plv};
 
     /*
      *  PRMD

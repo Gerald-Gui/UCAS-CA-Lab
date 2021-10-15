@@ -419,7 +419,7 @@ assign br_offs = need_si26 ? {{ 4{i26[25]}}, i26[25:0], 2'b0} :
 
 assign jirl_offs = {{14{i16[15]}}, i16[15:0], 2'b0};
 
-assign src_reg_is_rd = inst_beq | inst_bne | inst_blt | inst_bge | inst_bltu | inst_bgeu | (|store_op);
+assign src_reg_is_rd = inst_beq | inst_bne | inst_blt | inst_bge | inst_bltu | inst_bgeu | (|store_op) | inst_csrwr | inst_csrxchg;
 
 assign src1_is_pc    = inst_jirl | inst_bl | inst_pcaddu12i;
 
@@ -515,7 +515,7 @@ assign ds_exc_flgs[`EXC_FLG_ADEF] = fs_to_ds_exc_flgs[`EXC_FLG_ADEF];
 
 // csr insts
 assign ds_csr_we    = inst_csrwr | inst_csrxchg;
-assign ds_csr_re    = inst_csrrd;
+assign ds_csr_re    = inst_csrrd | inst_csrwr | inst_csrxchg;
 assign ds_csr_wnum  = ds_inst[23:10];
 assign ds_csr_wdata = rkd_value;
 assign ds_csr_rdata = csr_rval;
@@ -535,18 +535,18 @@ assign csr_rnum = ds_inst[23:10];
 
 // RAW for csrs
 assign {es_csr_we, es_eret, es_csr_wnum} = es_csr_blk_bus;
-assign {ms_csr_we, es_eret, es_csr_wnum} = ms_csr_blk_bus;
-assign {ws_csr_we, es_eret, es_csr_wnum} = ws_csr_blk_bus;
+assign {ms_csr_we, ms_eret, ms_csr_wnum} = ms_csr_blk_bus;
+assign {ws_csr_we, ws_eret, ws_csr_wnum} = ws_csr_blk_bus;
 
 assign csr_blk = ds_csr_re & (es_csr_blk | ms_csr_blk | ws_csr_blk);
-assign es_csr_blk = es_csr_we &&  csr_rnum == es_csr_wnum ||
-                    es_eret   &&  csr_rnum == `CSR_CRMD   ||
+assign es_csr_blk = es_csr_we &&  csr_rnum == es_csr_wnum && es_csr_wnum != 0 ||
+                    es_eret   &&  csr_rnum == `CSR_CRMD                       ||
                     inst_ertn && (es_csr_wnum == `CSR_ERA || es_csr_wnum == `CSR_PRMD);
-assign ms_csr_blk = ms_csr_we &&  csr_rnum == ms_csr_wnum ||
-                    ms_eret   &&  csr_rnum == `CSR_CRMD   ||
+assign ms_csr_blk = ms_csr_we &&  csr_rnum == ms_csr_wnum && ms_csr_wnum != 0 ||
+                    ms_eret   &&  csr_rnum == `CSR_CRMD                       ||
                     inst_ertn && (ms_csr_wnum == `CSR_ERA || ms_csr_wnum == `CSR_PRMD);
-assign ws_csr_blk = ws_csr_we &&  csr_rnum == ws_csr_wnum ||
-                    ws_eret   &&  csr_rnum == `CSR_CRMD   ||
+assign ws_csr_blk = ws_csr_we &&  csr_rnum == ws_csr_wnum && ws_csr_wnum != 0 ||
+                    ws_eret   &&  csr_rnum == `CSR_CRMD                       ||
                     inst_ertn && (ws_csr_wnum == `CSR_ERA || ws_csr_wnum == `CSR_PRMD);
 // wire csr_blk;
 // wire es_csr_blk;

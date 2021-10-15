@@ -58,8 +58,6 @@ assign fs_to_ds_valid =  fs_valid && fs_ready_go;
 always @(posedge clk) begin
     if (reset) begin
         fs_valid <= 1'b0;
-    end else if (wb_exc | wb_ertn) begin
-        fs_valid <= 1'b0;
     end else if (fs_allowin) begin
         fs_valid <= to_fs_valid;
     end
