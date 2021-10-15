@@ -83,7 +83,7 @@ always @(posedge clk) begin
     end
 end
 
-assign rf_we    = ws_gr_we && ws_valid;
+assign rf_we    = ws_gr_we & ws_valid & ~wb_exc;
 assign rf_waddr = ws_dest;
 assign rf_wdata = ws_final_result;
 
@@ -93,7 +93,7 @@ assign debug_wb_rf_wen   = {4{rf_we}};
 assign debug_wb_rf_wnum  = ws_dest;
 assign debug_wb_rf_wdata = ws_final_result;
 
-assign csr_we    = ws_csr_we & ws_valid;
+assign csr_we    = ws_csr_we & ws_valid & ~wb_exc;
 assign csr_wnum  = ws_csr_wnum;
 assign csr_wmask = ws_csr_wmask;
 assign csr_wval  = ws_csr_wdata;
