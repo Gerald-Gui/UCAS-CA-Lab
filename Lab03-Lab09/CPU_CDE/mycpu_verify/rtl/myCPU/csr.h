@@ -1,24 +1,28 @@
 `ifndef CSR_H
-    // CSR nums: 9 bits -> max 0x181
+    /*
+     * CSR nums: 14 bits len of imm in inst
+     */
     // lab8 csrs
-    `define CSR_CRMD    9'h000
-    `define CSR_PRMD    9'h001
-    `define CSR_ESTAT   9'h005
-    `define CSR_ERA     9'h006
-    `define CSR_EENTRY  9'h00c
-    `define CSR_SAVE0   9'h030
-    `define CSR_SAVE1   9'h031
-    `define CSR_SAVE2   9'h032
-    `define CSR_SAVE3   9'h033
+    `define CSR_CRMD    14'h000
+    `define CSR_PRMD    14'h001
+    `define CSR_ESTAT   14'h005
+    `define CSR_ERA     14'h006
+    `define CSR_EENTRY  14'h00c
+    `define CSR_SAVE0   14'h030
+    `define CSR_SAVE1   14'h031
+    `define CSR_SAVE2   14'h032
+    `define CSR_SAVE3   14'h033
     // lab9 csrs
-    `define CSR_ECFG    9'h004
-    `define CSR_BADV    9'h007
-    `define CSR_TID     9'h040
-    `define CSR_TCFG    9'h041
-    `define CSR_TVAL    9'h042
-    `define CSR_TICLR   9'h044
+    `define CSR_ECFG    14'h004
+    `define CSR_BADV    14'h007
+    `define CSR_TID     14'h040
+    `define CSR_TCFG    14'h041
+    `define CSR_TVAL    14'h042
+    `define CSR_TICLR   14'h044
 
-    // CSR fields
+    /*
+     *  CSR fields
+     */
     // use as index
     // lab8 csrs
     // CRMD
@@ -35,7 +39,15 @@
     // ESTAT
     `define CSR_ESTAT_IS10  1:0
     /* other ESTAT fields not require wmask/wvalue */
-    
+    // ERA
+    `define CSR_ERA_PC      31:0
+    // EENTRY
+    `define CSR_EENTRY_VA   31:6
+    // SAVE0-3
+    `define CSR_SAVE_DATA   31:0
+
+    // lab9 csrs
+    `define CSR_ECFG_LIE    12:0
 
     // exception codes
     // ECODE: 6 bits -> 21:16 in ESTAT
