@@ -180,7 +180,8 @@ wire [31:0] regs_minus_res;
 wire        ds_csr_we;
 wire        ds_csr_re;  // read enable
 wire [13:0] ds_csr_wnum;
-wire [31:0] ds_csr_data;// read/write data
+wire [31:0] ds_csr_wdata;
+wire [31:0] ds_csr_rdata;
 wire [31:0] ds_csr_wmask;
 wire [31:0] csr_num_mask;
 
@@ -247,11 +248,12 @@ assign ws_reg2_hazard = rf_we     && rf_waddr != 0 && src_reg2 && rf_waddr == rf
 
 assign br_bus       = {br_taken,br_target};
 
-assign ds_to_es_bus = {ds_csr_we   ,  //251:251
-                       ds_csr_re   ,  //250:250
-                       ds_csr_wnum ,  //249:236
-                       ds_csr_wmask,  //235:204
-                       ds_csr_data ,  //203:172
+assign ds_to_es_bus = {ds_csr_we   ,  //283:283
+                       ds_csr_re   ,  //282:282
+                       ds_csr_wnum ,  //281:268
+                       ds_csr_wmask,  //267:236
+                       ds_csr_wdata,  //235:204
+                       ds_csr_rdata,  //203:172
                        inst_ertn   ,  //171:171
                        ds_exc_flgs ,  //170:165
                        alu_op      ,  //164:146
@@ -439,9 +441,8 @@ assign src2_is_imm   = inst_slli_w |
 
 assign res_from_mul  = inst_mul_w | inst_mulh_w | inst_mulh_wu;
 assign dst_is_r1     = inst_bl;
-assign gr_we         = ~(|store_op)  & ~inst_beq  & ~inst_bne & ~inst_bge   & ~inst_bgeu    &
-                       ~inst_blt     & ~inst_bltu & ~inst_b   & ~inst_csrwr & ~inst_csrxchg &
-                       ~inst_syscall & ~inst_ertn;
+assign gr_we         = ~(|store_op)  & ~inst_beq  & ~inst_bne & ~inst_bge     & ~inst_bgeu    &
+                       ~inst_blt     & ~inst_bltu & ~inst_b   & ~inst_syscall & ~inst_ertn;
 assign mem_we        = |store_op;
 assign dest          = dst_is_r1 ? 5'd1 : rd;
 
@@ -516,7 +517,8 @@ assign ds_exc_flgs[`EXC_FLG_ADEF] = fs_to_ds_exc_flgs[`EXC_FLG_ADEF];
 assign ds_csr_we    = inst_csrwr | inst_csrxchg;
 assign ds_csr_re    = inst_csrrd;
 assign ds_csr_wnum  = ds_inst[23:10];
-assign ds_csr_data  = inst_csrrd ? csr_rval : rkd_value;
+assign ds_csr_wdata = rkd_value;
+assign ds_csr_rdata = csr_rval;
 
 assign csr_num_mask = {32{ds_csr_wnum == `CSR_CRMD  }} & `CSR_MASK_CRMD   |
                       {32{ds_csr_wnum == `CSR_PRMD  }} & `CSR_MASK_PRMD   |

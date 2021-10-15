@@ -43,7 +43,8 @@ wire        ms_csr_we;
 wire        ms_csr_re;
 wire [13:0] ms_csr_wnum;
 wire [31:0] ms_csr_wmask;
-wire [31:0] ms_csr_data;
+wire [31:0] ms_csr_wdata;
+wire [31:0] ms_csr_rdata;
 wire        ms_inst_ertn;
 
 
@@ -51,7 +52,8 @@ assign {ms_csr_we      ,
         ms_csr_re      ,
         ms_csr_wnum    ,
         ms_csr_wmask   ,
-        ms_csr_data    ,
+        ms_csr_wdata   ,
+        ms_csr_rdata   ,
         ms_inst_ertn   ,
         es_to_ms_exc_flgs,
         ms_res_from_mul,  //75:75
@@ -78,7 +80,8 @@ assign ms_to_ws_bus = {ms_csr_we      ,
                        ms_csr_re      ,
                        ms_csr_wnum    ,
                        ms_csr_wmask   ,
-                       ms_csr_data    ,
+                       ms_csr_wdata   ,
+                       ms_csr_rdata   ,
                        ms_inst_ertn   ,
                        ms_exc_flgs    ,
                        ms_gr_we       ,  //69:69

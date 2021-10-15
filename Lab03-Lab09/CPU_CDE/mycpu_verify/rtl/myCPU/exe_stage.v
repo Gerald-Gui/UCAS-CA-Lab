@@ -62,14 +62,16 @@ wire [`EXC_NUM - 1:0] es_exc_flgs;
 wire        es_csr_we;
 wire        es_csr_re;
 wire [13:0] es_csr_wnum;
-wire [31:0] es_csr_data;
+wire [31:0] es_csr_wdata;
+wire [31:0] es_csr_rdata;
 wire [31:0] es_csr_wmask;
 
 assign {es_csr_we      ,
         es_csr_re      ,
         es_csr_wnum    ,
         es_csr_wmask   ,
-        es_csr_data    ,
+        es_csr_wdata   ,
+        es_csr_rdata   ,
         es_inst_ertn   ,  //171:171
         ds_to_es_exc_flgs,//170:165
         es_alu_op      ,  //164:146
@@ -96,7 +98,8 @@ assign es_to_ms_bus = {es_csr_we      ,
                        es_csr_re      ,
                        es_csr_wnum    ,
                        es_csr_wmask   ,
-                       es_csr_data    ,
+                       es_csr_wdata   ,
+                       es_csr_rdata   ,
                        es_inst_ertn   ,
                        es_exc_flgs    ,
                        es_res_from_mul,  //75:75

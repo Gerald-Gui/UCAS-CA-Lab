@@ -40,7 +40,8 @@ wire [`EXC_NUM-1:0] ws_exc_flgs;
 wire        ws_csr_we;
 wire        ws_csr_re;
 wire [13:0] ws_csr_wnum;
-wire [31:0] ws_csr_data;
+wire [31:0] ws_csr_wdata;
+wire [31:0] ws_csr_rdata;
 wire [31:0] ws_csr_wmask;
 wire        ws_inst_ertn;
 
@@ -52,7 +53,8 @@ assign {ws_csr_we      ,
         ws_csr_re      ,
         ws_csr_wnum    ,
         ws_csr_wmask   ,
-        ws_csr_data    ,
+        ws_csr_wdata   ,
+        ws_csr_rdata   ,
         ws_inst_ertn   ,
         ws_exc_flgs    ,
         ws_gr_we       ,  //69:69
@@ -87,19 +89,18 @@ end
 
 assign rf_we    = ws_gr_we && ws_valid;
 assign rf_waddr = ws_dest;
-assign rf_wdata = ws_final_result;
+assign rf_wdata = ws_csr_re ? ws_csr_rdata : ws_final_result;
 
 // debug info generate
 assign debug_wb_pc       = ws_pc;
 assign debug_wb_rf_wen   = {4{rf_we}};
 assign debug_wb_rf_wnum  = ws_dest;
-assign debug_wb_rf_wdata = ws_csr_re ? ws_csr_data :
-                                       ws_final_result;
+assign debug_wb_rf_wdata = rf_wdata;
 
 assign csr_we    = ws_csr_we & ws_valid;
 assign csr_wnum  = ws_csr_wnum;
 assign csr_wmask = ws_csr_wmask;
-assign csr_wval  = ws_csr_data;
+assign csr_wval  = ws_csr_wdata;
 
 assign wb_exc      = (|ws_exc_flgs) & ws_valid;
 assign wb_ecode    = {6{ws_exc_flgs[`EXC_FLG_ADEF]}} & `ECODE_ADE |
