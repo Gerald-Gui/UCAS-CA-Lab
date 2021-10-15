@@ -15,7 +15,13 @@ module if_stage(
     output [ 3:0] inst_sram_wen  ,
     output [31:0] inst_sram_addr ,
     output [31:0] inst_sram_wdata,
-    input  [31:0] inst_sram_rdata
+    input  [31:0] inst_sram_rdata,
+
+    // exc && int
+    input         wb_exc,
+    input         wb_ertn,
+    input  [31:0] exc_entry,
+    input  [31:0] exc_retaddr
 );
 
 reg         fs_valid;
@@ -32,13 +38,18 @@ assign {br_taken,br_target} = br_bus;
 
 wire [31:0] fs_inst;
 reg  [31:0] fs_pc;
-assign fs_to_ds_bus = {fs_inst ,
-                       fs_pc   };
+assign fs_to_ds_bus = {
+                       fs_exc_flgs,
+                       fs_inst ,
+                       fs_pc   
+                      };
 
 // pre-IF stage
 assign to_fs_valid  = ~reset;
-assign seq_pc       = fs_pc + 3'h4;
-assign nextpc       = br_taken ? br_target : seq_pc; 
+assign seq_pc       = fs_pc + 32'h4;
+assign nextpc       = wb_exc   ? exc_entry   :
+                      wb_ertn  ? exc_retaddr :
+                      br_taken ? br_target   : seq_pc; 
 
 // IF stage
 assign fs_ready_go    = 1'b1;
@@ -47,8 +58,9 @@ assign fs_to_ds_valid =  fs_valid && fs_ready_go;
 always @(posedge clk) begin
     if (reset) begin
         fs_valid <= 1'b0;
-    end
-    else if (fs_allowin) begin
+    end else if (wb_exc | wb_ertn) begin
+        fs_valid <= 1'b0;
+    end else if (fs_allowin) begin
         fs_valid <= to_fs_valid;
     end
 
@@ -66,5 +78,15 @@ assign inst_sram_addr  = nextpc;
 assign inst_sram_wdata = 32'b0;
 
 assign fs_inst         = inst_sram_rdata;
+
+// TODO(lab9): ADEF exc
+wire [`EXC_NUM - 1:0] fs_exc_flgs;
+assign fs_exc_flgs[`EXC_FLG_ADEF] = 1'b0;
+// init other exc to 0 by default
+assign fs_exc_flgs[`EXC_FLG_SYS]  = 1'b0;
+assign fs_exc_flgs[`EXC_FLG_ALE]  = 1'b0;
+assign fs_exc_flgs[`EXC_FLG_BRK]  = 1'b0;
+assign fs_exc_flgs[`EXC_FLG_INE]  = 1'b0;
+assign fs_exc_flgs[`EXC_FLG_INT]  = 1'b0;
 
 endmodule

@@ -1,4 +1,5 @@
 `include "mycpu.h"
+`include "csr.h"
 
 module id_stage(
     input                          clk           ,
@@ -19,7 +20,19 @@ module id_stage(
 
     // blk signals from es, ms, ws
     input  [`ES_FWD_BLK_BUS_WD-1:0] es_fwd_blk_bus,
-    input  [`MS_FWD_BLK_BUS_WD-1:0] ms_fwd_blk_bus
+    input  [`MS_FWD_BLK_BUS_WD-1:0] ms_fwd_blk_bus,
+
+    // exc && int
+    input csr_has_int,
+    input wb_exc,
+    input wb_ertn,
+    output [13:0] csr_rnum,
+    input  [31:0] csr_rval,
+
+    // TODO: RAW for csrs
+    input [`ES_CSR_BLK_BUS_WD-1:0] es_csr_blk_bus,
+    input [`MS_CSR_BLK_BUS_WD-1:0] ms_csr_blk_bus,
+    input [`WS_CSR_BLK_BUS_WD-1:0] ws_csr_blk_bus
 );
 
 reg             ds_valid   ;
@@ -29,7 +42,9 @@ reg  [`FS_TO_DS_BUS_WD -1:0]     fs_to_ds_bus_r;
 
 wire [31:0]     ds_inst;
 wire [31:0]     ds_pc  ;
-assign {ds_inst,
+wire [`EXC_NUM - 1:0]     fs_to_ds_exc_flgs;
+assign {fs_to_ds_exc_flgs,
+        ds_inst,
         ds_pc  } = fs_to_ds_bus_r;
 
 wire            rf_we   ;
@@ -42,6 +57,9 @@ assign {rf_we   ,  //37:37
 
 wire            br_taken;
 wire [31:0]     br_target;
+
+// sigs for exc || int
+wire [`EXC_NUM - 1:0] ds_exc_flgs;
 
 wire [18:0]     alu_op;
 wire [ 4:0]     load_op;
@@ -128,6 +146,13 @@ wire            inst_st_b;
 wire            inst_st_h;
 wire            inst_ld_bu;
 wire            inst_ld_hu;
+// csr r/w inst
+wire            inst_csrrd;
+wire            inst_csrwr;
+wire            inst_csrxchg;
+// int inst
+wire            inst_syscall;
+wire            inst_ertn;
 
 wire            need_ui5;
 wire            need_ui12;
@@ -151,6 +176,14 @@ wire regs_minus_carry;
 wire regs_minus_low;
 wire [31:0] regs_minus_res;
 
+// csr insts
+wire        ds_csr_we;
+wire        ds_csr_re;  // read enable
+wire [13:0] ds_csr_wnum;
+wire [31:0] ds_csr_data;// read/write data
+wire [31:0] ds_csr_wmask;
+wire [31:0] csr_num_mask;
+
 // block && forward strategy
 wire            es_fwd_we;
 wire            es_blk_we;
@@ -171,17 +204,34 @@ wire            ws_reg2_hazard;
 wire            src_reg1;
 wire            src_reg2;
 
+// RAW for csrs
+wire        es_csr_we;
+wire        es_eret;
+wire [13:0] es_csr_wnum;
+wire        ms_csr_we;
+wire        ms_eret;
+wire [13:0] ms_csr_wnum;
+wire        ws_csr_we;
+wire        ws_eret;
+wire [13:0] ws_csr_wnum;
+
+wire csr_blk;
+wire es_csr_blk;
+wire ms_csr_blk;
+wire ws_csr_blk;
+
+// RAW for common usr insts
 assign {es_fwd_we, es_blk_we, es_waddr, es_wdata} = es_fwd_blk_bus;
 assign {ms_fwd_we, ms_waddr, ms_wdata} = ms_fwd_blk_bus;
 
-assign src_reg1 = ~(inst_b | inst_bl);
+assign src_reg1 = ~ds_exc_flgs[`EXC_FLG_INE] & ~(inst_b | inst_bl | inst_csrrd | inst_csrwr | inst_syscall | inst_ertn);
 assign src_reg2 = inst_add_w  | inst_sub_w  | inst_slt    | inst_sltu   |
                   inst_nor    | inst_and    | inst_or     | inst_xor    |
                   inst_st_w   | inst_beq    | inst_bne    | inst_blt    |
                   inst_bge    | inst_bltu   | inst_bgeu   | inst_sll_w  |
                   inst_srl_w  | inst_sra_w  | inst_mul_w  | inst_mulh_w |
                   inst_mulh_wu| inst_div_w  | inst_div_wu | inst_mod_w  |
-                  inst_mod_wu;
+                  inst_mod_wu | inst_csrwr  | inst_csrxchg;
 
 assign es_blk = es_blk_we && es_waddr != 0 && (
                 src_reg1 && es_waddr == rf_raddr1 ||
@@ -197,7 +247,14 @@ assign ws_reg2_hazard = rf_we     && rf_waddr != 0 && src_reg2 && rf_waddr == rf
 
 assign br_bus       = {br_taken,br_target};
 
-assign ds_to_es_bus = {alu_op      ,  //164:146
+assign ds_to_es_bus = {ds_csr_we   ,  //251:251
+                       ds_csr_re   ,  //250:250
+                       ds_csr_wnum ,  //249:236
+                       ds_csr_wmask,  //235:204
+                       ds_csr_data ,  //203:172
+                       inst_ertn   ,  //171:171
+                       ds_exc_flgs ,  //170:165
+                       alu_op      ,  //164:146
                        res_from_mul,  //145:145
                        load_op     ,  //144:140
                        store_op    ,  //139:137
@@ -213,7 +270,7 @@ assign ds_to_es_bus = {alu_op      ,  //164:146
                       };
 
 // with blk
-assign ds_ready_go    = ~es_blk;
+assign ds_ready_go    = ~es_blk | ~csr_blk;
 
 assign ds_allowin     = !ds_valid || ds_ready_go && es_allowin;
 assign ds_to_es_valid = ds_valid && ds_ready_go;
@@ -222,6 +279,8 @@ always @(posedge clk) begin
     if (reset) begin
         ds_valid <= 1'b0;
     end else if (br_taken) begin
+        ds_valid <= 1'b0;
+    end else if (wb_exc | wb_ertn) begin
         ds_valid <= 1'b0;
     end else if (ds_allowin) begin
         ds_valid <= fs_to_ds_valid;
@@ -307,6 +366,13 @@ assign inst_bge    = op_31_26_d[6'h19];
 assign inst_bltu   = op_31_26_d[6'h1a];
 assign inst_bgeu   = op_31_26_d[6'h1b];
 
+assign inst_csrrd   = op_31_26_d[6'h01] & ds_inst[25:24] == 2'b0 & ds_inst[9:5] == 5'h00;
+assign inst_csrwr   = op_31_26_d[6'h01] & ds_inst[25:24] == 2'b0 & ds_inst[9:5] == 5'h01;
+assign inst_csrxchg = op_31_26_d[6'h01] & ds_inst[25:24] == 2'b0 & ds_inst[9:5] != 5'h00
+                                                                 & ds_inst[9:5] != 5'h01;
+assign inst_syscall = op_31_26_d[6'h00] & op_25_22_d[4'h0] & op_21_20_d[2'b10] & op_19_15_d[5'h16];
+assign inst_ertn    = op_31_26_d[6'h01] & op_25_22_d[4'h9] & op_21_20_d[2'h0] & op_19_15_d[5'h10] & rk == 5'h0e;
+
 assign alu_op[ 0] = inst_add_w  | inst_addi_w | (|load_op) | (|store_op) | inst_jirl | inst_bl |
                     inst_pcaddu12i;
 assign alu_op[ 1] = inst_sub_w;
@@ -373,7 +439,9 @@ assign src2_is_imm   = inst_slli_w |
 
 assign res_from_mul  = inst_mul_w | inst_mulh_w | inst_mulh_wu;
 assign dst_is_r1     = inst_bl;
-assign gr_we         = ~(|store_op) & ~inst_beq & ~inst_bne & ~inst_bge & ~inst_bgeu & ~inst_blt & ~inst_bltu & ~inst_b;
+assign gr_we         = ~(|store_op)  & ~inst_beq  & ~inst_bne & ~inst_bge   & ~inst_bgeu    &
+                       ~inst_blt     & ~inst_bltu & ~inst_b   & ~inst_csrwr & ~inst_csrxchg &
+                       ~inst_syscall & ~inst_ertn;
 assign mem_we        = |store_op;
 assign dest          = dst_is_r1 ? 5'd1 : rd;
 
@@ -421,5 +489,66 @@ assign br_taken = (   (inst_beq  &&  rj_eq_rd)
                   ) && ds_valid && ds_ready_go; 
 assign br_target = (inst_beq || inst_bne || inst_blt || inst_bge || inst_bltu || inst_bgeu || inst_bl || inst_b) ? (ds_pc + br_offs) :
                                                    /*inst_jirl*/ (rj_value + jirl_offs);
+
+/*
+ *  exc && int
+ */
+assign ds_exc_flgs[`EXC_FLG_SYS]  = inst_syscall;
+// TODO(lab9): update INE INT BRK logic
+assign ds_exc_flgs[`EXC_FLG_INE]  = ~(inst_add_w  | inst_sub_w   | inst_slt   | inst_sltu      | inst_nor     |
+                                      inst_and    | inst_or      | inst_xor   | inst_slli_w    | inst_srli_w  |
+                                      inst_srai_w | inst_addi_w  | inst_ld_w  | inst_st_w      | inst_jirl    |
+                                      inst_b      | inst_bl      | inst_beq   | inst_bne       | inst_lu12i_w |
+                                      inst_slti   | inst_sltui   | inst_andi  | inst_ori       | inst_xori    |
+                                      inst_sll_w  | inst_srl_w   | inst_sra_w | inst_pcaddu12i | inst_mul_w   |
+                                      inst_mulh_w | inst_mulh_wu | inst_div_w | inst_div_wu    | inst_mod_w   |
+                                      inst_mod_wu | inst_blt     | inst_bge   | inst_bltu      | inst_bgeu    |
+                                      inst_ld_b   | inst_ld_h    | inst_st_b  | inst_st_h      | inst_ld_bu   |
+                                      inst_ld_hu  | inst_csrrd   | inst_csrwr | inst_csrxchg   | inst_syscall |
+                                      inst_ertn);
+assign ds_exc_flgs[`EXC_FLG_INT]  = csr_has_int;
+assign ds_exc_flgs[`EXC_FLG_BRK]  = 1'b0;
+// other exc flgs from fs
+assign ds_exc_flgs[`EXC_FLG_ALE]  = fs_to_ds_exc_flgs[`EXC_FLG_ALE];
+assign ds_exc_flgs[`EXC_FLG_ADEF] = fs_to_ds_exc_flgs[`EXC_FLG_ADEF];
+
+// csr insts
+assign ds_csr_we    = inst_csrwr | inst_csrxchg;
+assign ds_csr_re    = inst_csrrd;
+assign ds_csr_wnum  = ds_inst[23:10];
+assign ds_csr_data  = inst_csrrd ? csr_rval : rkd_value;
+
+assign csr_num_mask = {32{ds_csr_wnum == `CSR_CRMD  }} & `CSR_MASK_CRMD   |
+                      {32{ds_csr_wnum == `CSR_PRMD  }} & `CSR_MASK_PRMD   |
+                      {32{ds_csr_wnum == `CSR_ESTAT }} & `CSR_MASK_ESTAT  |
+                      {32{ds_csr_wnum == `CSR_ERA   }} & `CSR_MASK_ERA    |
+                      {32{ds_csr_wnum == `CSR_EENTRY}} & `CSR_MASK_EENTRY |
+                      {32{ds_csr_wnum == `CSR_SAVE0 ||
+                          ds_csr_wnum == `CSR_SAVE1 ||
+                          ds_csr_wnum == `CSR_SAVE2 ||
+                          ds_csr_wnum == `CSR_SAVE3 }} & `CSR_MASK_SAVE;
+assign ds_csr_wmask = inst_csrxchg ? rj_value : csr_num_mask;
+
+assign csr_rnum = ds_inst[23:10];
+
+// RAW for csrs
+assign {es_csr_we, es_eret, es_csr_wnum} = es_csr_blk_bus;
+assign {ms_csr_we, es_eret, es_csr_wnum} = ms_csr_blk_bus;
+assign {ws_csr_we, es_eret, es_csr_wnum} = ws_csr_blk_bus;
+
+assign csr_blk = es_csr_re & (es_csr_blk | ms_csr_blk | ws_csr_blk);
+assign es_csr_blk = es_csr_we &&  csr_rnum == es_csr_wnum ||
+                    es_eret   &&  csr_rnum == `CSR_CRMD   ||
+                    inst_ertn && (es_csr_wnum == `CSR_ERA || es_csr_wnum == `CSR_PRMD);
+assign ms_csr_blk = ms_csr_we &&  csr_rnum == ms_csr_wnum ||
+                    ms_eret   &&  csr_rnum == `CSR_CRMD   ||
+                    inst_ertn && (ms_csr_wnum == `CSR_ERA || ms_csr_wnum == `CSR_PRMD);
+assign ws_csr_blk = ws_csr_we &&  csr_rnum == ws_csr_wnum ||
+                    ws_eret   &&  csr_rnum == `CSR_CRMD   ||
+                    inst_ertn && (ws_csr_wnum == `CSR_ERA || ws_csr_wnum == `CSR_PRMD);
+// wire csr_blk;
+// wire es_csr_blk;
+// wire ms_csr_blk;
+// wire ws_csr_blk;
 
 endmodule

@@ -44,6 +44,31 @@ wire [`MS_FWD_BLK_BUS_WD - 1:0] ms_fwd_blk_bus;
 
 wire [64:0] mul_res_bus;
 
+// CSR ports
+wire [13:0] csr_wnum;
+wire        csr_we;
+wire [31:0] csr_wmask;
+wire [31:0] csr_wval;
+wire [13:0] csr_rnum;
+wire [31:0] csr_rval;
+
+wire        wb_exc;
+wire [ 5:0] wb_ecode;
+wire [ 8:0] wb_esubcode;
+wire [31:0] wb_pc;
+
+wire        wb_ertn;
+wire        csr_has_int;
+wire [31:0] exc_entry;
+wire [31:0] exc_retaddr;
+
+wire [`ES_CSR_BLK_BUS_WD-1:0] es_csr_blk_bus;
+wire [`MS_CSR_BLK_BUS_WD-1:0] ms_csr_blk_bus;
+wire [`WS_CSR_BLK_BUS_WD-1:0] ws_csr_blk_bus;
+
+wire ms_to_es_st_cancel;
+
+
 // IF stage
 if_stage if_stage(
     .clk            (clk            ),
@@ -60,7 +85,12 @@ if_stage if_stage(
     .inst_sram_wen  (inst_sram_wen  ),
     .inst_sram_addr (inst_sram_addr ),
     .inst_sram_wdata(inst_sram_wdata),
-    .inst_sram_rdata(inst_sram_rdata)
+    .inst_sram_rdata(inst_sram_rdata),
+
+    .wb_exc         (wb_exc         ),
+    .wb_ertn        (wb_ertn        ),
+    .exc_entry      (exc_entry      ),
+    .exc_retaddr    (exc_retaddr    )
 );
 // ID stage
 id_stage id_stage(
@@ -80,8 +110,18 @@ id_stage id_stage(
     //to rf: for write back
     .ws_to_rf_bus   (ws_to_rf_bus   ),
 
-    .es_fwd_blk_bus (es_fwd_blk_bus     ),
-    .ms_fwd_blk_bus (ms_fwd_blk_bus     )
+    .es_fwd_blk_bus (es_fwd_blk_bus ),
+    .ms_fwd_blk_bus (ms_fwd_blk_bus ),
+
+    .csr_has_int    (csr_has_int    ),
+    .wb_exc         (wb_exc         ),
+    .wb_ertn        (wb_ertn        ),
+    .csr_rnum       (csr_rnum       ),
+    .csr_rval       (csr_rval       ),
+
+    .es_csr_blk_bus (es_csr_blk_bus ),
+    .ms_csr_blk_bus (ms_csr_blk_bus ),
+    .ws_csr_blk_bus (ws_csr_blk_bus )
 );
 // EXE stage
 exe_stage exe_stage(
@@ -103,7 +143,13 @@ exe_stage exe_stage(
     .data_sram_wdata(data_sram_wdata),
 
     .es_fwd_blk_bus (es_fwd_blk_bus),
-    .es_mul_res_bus (mul_res_bus   )
+    .es_mul_res_bus (mul_res_bus   ),
+
+    .wb_exc         (wb_exc         ),
+    .wb_ertn        (wb_ertn        ),
+    .ms_to_es_st_cancel(ms_to_es_st_cancel),
+
+    .es_csr_blk_bus (es_csr_blk_bus )
 );
 // MEM stage
 mem_stage mem_stage(
@@ -122,7 +168,12 @@ mem_stage mem_stage(
     .data_sram_rdata(data_sram_rdata),
 
     .ms_fwd_blk_bus (ms_fwd_blk_bus),
-    .ms_mul_res_bus (mul_res_bus   )
+    .ms_mul_res_bus (mul_res_bus   ),
+    
+    .wb_exc         (wb_exc         ),
+    .wb_ertn        (wb_ertn        ),
+    .ms_to_es_st_cancel(ms_to_es_st_cancel),
+    .ms_csr_blk_bus (ms_csr_blk_bus )
 );
 // WB stage
 wb_stage wb_stage(
@@ -139,7 +190,45 @@ wb_stage wb_stage(
     .debug_wb_pc      (debug_wb_pc      ),
     .debug_wb_rf_wen  (debug_wb_rf_wen  ),
     .debug_wb_rf_wnum (debug_wb_rf_wnum ),
-    .debug_wb_rf_wdata(debug_wb_rf_wdata)
+    .debug_wb_rf_wdata(debug_wb_rf_wdata),
+
+    .csr_we         (csr_we         ),
+    .csr_wnum       (csr_wnum       ),
+    .csr_wmask      (csr_wmask      ),
+    .csr_wval       (csr_wval       ),
+
+    .wb_exc         (wb_exc         ),
+    .wb_ecode       (wb_ecode       ),
+    .wb_esubcode    (wb_esubcode    ),
+    .wb_pc          (wb_pc          ),
+
+    .ertn_flush     (wb_ertn        ),
+
+    .ws_csr_blk_bus (ws_csr_blk_bus )
+);
+
+csr u_csr(
+    .clk        (clk        ),
+    .rst        (reset      ),
+    
+    .csr_wnum   (csr_wnum   ),
+    .csr_we     (csr_we     ),
+    .csr_wmask  (csr_wmask  ),
+    .csr_wval   (csr_wval   ),
+
+    .csr_rnum   (csr_rnum   ),
+    .csr_rval   (csr_rval   ),
+
+    .wb_exc     (wb_exc     ),
+    .wb_ecode   (wb_ecode   ),
+    .wb_esubcode(wb_esubcode),
+    .wb_pc      (wb_pc      ),
+
+    .ertn_flush (wb_ertn    ),
+    
+    .has_int    (csr_has_int),
+    .exc_entry  (exc_entry  ),
+    .exc_retaddr(exc_retaddr)
 );
 
 endmodule

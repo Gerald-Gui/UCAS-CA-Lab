@@ -4,9 +4,8 @@ module csr(
     input clk,
     input rst,
 
-    input  [13:0] csr_wnum,
-
     input         csr_we,
+    input  [13:0] csr_wnum,
     input  [31:0] csr_wmask,
     input  [31:0] csr_wval,
 
@@ -21,7 +20,8 @@ module csr(
     input ertn_flush,
 
     output has_int,
-    output [31:0] exc_entry
+    output [31:0] exc_entry,
+    output [31:0] exc_retaddr
 );
 
     // lab8 csrs
@@ -201,7 +201,8 @@ module csr(
                       {32{csr_rnum == `CSR_SAVE1 }} & csr_save_rval[1] |
                       {32{csr_rnum == `CSR_SAVE2 }} & csr_save_rval[2] |
                       {32{csr_rnum == `CSR_SAVE3 }} & csr_save_rval[3];
-    assign exc_entry = csr_eentry_rval;
-    assign has_int   = (|(csr_estat_is & csr_ecfg_lie)) & csr_crmd_ie;
+    assign exc_entry   = csr_eentry_rval;
+    assign exc_retaddr = csr_era_rval;
+    assign has_int     = (|(csr_estat_is & csr_ecfg_lie)) & csr_crmd_ie;
 
 endmodule

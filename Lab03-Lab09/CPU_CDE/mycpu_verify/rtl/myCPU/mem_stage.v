@@ -18,7 +18,12 @@ module mem_stage(
     // blk bus to id
     output [`MS_FWD_BLK_BUS_WD-1:0] ms_fwd_blk_bus,
     // mul final res
-    input  [64:0] ms_mul_res_bus
+    input  [64:0] ms_mul_res_bus,
+
+    input  wb_exc,
+    input  wb_ertn,
+    output ms_to_es_st_cancel,
+    output [`MS_CSR_BLK_BUS_WD-1:0] ms_csr_blk_bus
 );
 
 reg         ms_valid;
@@ -32,7 +37,24 @@ wire [ 4:0] ms_dest;
 wire [31:0] ms_alu_result;
 wire [31:0] ms_pc;
 
-assign {ms_res_from_mul,  //75:75
+wire [`EXC_NUM-1:0] es_to_ms_exc_flgs;
+wire [`EXC_NUM-1:0] ms_exc_flgs;
+wire        ms_csr_we;
+wire        ms_csr_re;
+wire [13:0] ms_csr_wnum;
+wire [31:0] ms_csr_wmask;
+wire [31:0] ms_csr_data;
+wire        ms_inst_ertn;
+
+
+assign {ms_csr_we      ,
+        ms_csr_re      ,
+        ms_csr_wnum    ,
+        ms_csr_wmask   ,
+        ms_csr_data    ,
+        ms_inst_ertn   ,
+        es_to_ms_exc_flgs,
+        ms_res_from_mul,  //75:75
         ms_load_op     ,  //74:70
         ms_gr_we       ,  //69:69
         ms_dest        ,  //68:64
@@ -52,7 +74,14 @@ wire [15:0] load_h_data;
 wire [31:0] load_result;
 wire [31:0] ms_final_result;
 
-assign ms_to_ws_bus = {ms_gr_we       ,  //69:69
+assign ms_to_ws_bus = {ms_csr_we      ,
+                       ms_csr_re      ,
+                       ms_csr_wnum    ,
+                       ms_csr_wmask   ,
+                       ms_csr_data    ,
+                       ms_inst_ertn   ,
+                       ms_exc_flgs    ,
+                       ms_gr_we       ,  //69:69
                        ms_dest        ,  //68:64
                        ms_final_result,  //63:32
                        ms_pc             //31:0
@@ -64,8 +93,9 @@ assign ms_to_ws_valid = ms_valid && ms_ready_go;
 always @(posedge clk) begin
     if (reset) begin
         ms_valid <= 1'b0;
-    end
-    else if (ms_allowin) begin
+    end else if (wb_exc | wb_ertn) begin
+        ms_valid <= 1'b0;
+    end else if (ms_allowin) begin
         ms_valid <= es_to_ms_valid;
     end
 
@@ -95,5 +125,10 @@ assign ms_final_result = ms_res_from_mul ? mul_result :
                                            ms_alu_result;
 
 assign ms_fwd_blk_bus = {ms_gr_we & ms_valid, ms_dest, ms_final_result};
+
+assign ms_to_es_st_cancel = (|ms_exc_flgs) & ms_valid;
+assign ms_csr_blk_bus     = {ms_csr_we & ms_valid, ms_inst_ertn & ms_valid, ms_csr_wnum};
+
+assign ms_exc_flgs = es_to_ms_exc_flgs;
 
 endmodule

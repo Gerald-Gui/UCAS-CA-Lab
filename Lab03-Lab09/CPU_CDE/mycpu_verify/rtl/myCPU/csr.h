@@ -62,4 +62,12 @@
     `define ECODE_ALE   6'h09
     `define ECODE_BRK   6'h0C
     `define ECODE_INE   6'h0D
+
+    // CSR write masks
+    `define CSR_MASK_CRMD   32'h0000_0007   // only plv, ie
+    `define CSR_MASK_PRMD   32'h0000_0007
+    `define CSR_MASK_ESTAT  32'h0000_0003   // only SIS RW
+    `define CSR_MASK_ERA    32'hffff_ffff
+    `define CSR_MASK_EENTRY 32'hffff_ffc0
+    `define CSR_MASK_SAVE   32'hffff_ffff
 `endif
