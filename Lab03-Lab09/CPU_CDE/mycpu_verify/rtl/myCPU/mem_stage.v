@@ -45,8 +45,12 @@ wire [31:0] ms_csr_wmask;
 wire [31:0] ms_csr_wdata;
 wire        ms_inst_ertn;
 
+wire        ms_rdcn_en;
+wire        ms_rdcn_sel;
 
-assign {ms_csr_we      ,
+assign {ms_rdcn_en     ,
+        ms_rdcn_sel    ,
+        ms_csr_we      ,
         ms_csr_wnum    ,
         ms_csr_wmask   ,
         ms_csr_wdata   ,
@@ -84,6 +88,8 @@ assign ms_to_ws_bus = {ms_csr_we      ,
                        ms_pc             //31:0
                       };
 
+reg [63:0] stable_cnter;
+
 assign ms_ready_go    = 1'b1;
 assign ms_allowin     = !ms_valid || ms_ready_go && ws_allowin;
 assign ms_to_ws_valid = ms_valid && ms_ready_go;
@@ -117,7 +123,8 @@ assign load_result = {32{load_byte}} & {{24{load_b_data[ 7] & load_signed}}, loa
                      {32{load_half}} & {{16{load_h_data[15] & load_signed}}, load_h_data} |
                      {32{load_word}} & mem_result;
 
-assign ms_final_result = ms_exc_flgs[`EXC_FLG_ALE] ? ms_alu_result :
+assign ms_final_result = ms_rdcn_en ? stable_cnter[{ms_rdcn_sel, 5'b0}+:32] :
+                         ms_exc_flgs[`EXC_FLG_ALE] ? ms_alu_result :
                          ms_res_from_mul           ? mul_result    :
                          (|ms_load_op)             ? load_result   :
                                                      ms_alu_result;
@@ -128,5 +135,13 @@ assign ms_to_es_st_cancel = ((|ms_exc_flgs) | ms_inst_ertn) & ms_valid;
 assign ms_csr_blk_bus     = {ms_csr_we & ms_valid, ms_inst_ertn & ms_valid, ms_csr_wnum};
 
 assign ms_exc_flgs = es_to_ms_exc_flgs;
+
+always @ (posedge clk) begin
+    if (reset) begin
+        stable_cnter <= 64'b0;
+    end else begin
+        stable_cnter <= stable_cnter + 64'b1;
+    end
+end
 
 endmodule
