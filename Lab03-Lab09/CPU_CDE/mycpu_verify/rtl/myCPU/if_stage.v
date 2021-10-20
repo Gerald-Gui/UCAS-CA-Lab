@@ -78,9 +78,8 @@ assign inst_sram_wdata = 32'b0;
 
 assign fs_inst         = inst_sram_rdata;
 
-// TODO(lab9): ADEF exc
 wire [`EXC_NUM - 1:0] fs_exc_flgs;
-assign fs_exc_flgs[`EXC_FLG_ADEF] = 1'b0;
+assign fs_exc_flgs[`EXC_FLG_ADEF] = |nextpc[1:0];
 // init other exc to 0 by default
 assign fs_exc_flgs[`EXC_FLG_SYS]  = 1'b0;
 assign fs_exc_flgs[`EXC_FLG_ALE]  = 1'b0;

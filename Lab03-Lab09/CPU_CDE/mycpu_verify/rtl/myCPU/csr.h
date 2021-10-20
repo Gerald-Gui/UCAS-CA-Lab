@@ -47,7 +47,20 @@
     `define CSR_SAVE_DATA   31:0
 
     // lab9 csrs
+    // ECFG
     `define CSR_ECFG_LIE    12:0
+    // BADV
+    `define CSR_BADV_VAddr  31:0
+    // TID
+    `define CSR_TID_TID     31:0
+    // TCFG
+    `define CSR_TCFG_EN      0
+    `define CSR_TCFG_PERIOD  1
+    `define CSR_TCFG_INITVAL 31:2
+    // TVAL read-only
+    // TICLR
+    `define CSR_TICLR_CLR   0
+    
 
     // exception codes
     // ECODE: 6 bits -> 21:16 in ESTAT
@@ -58,7 +71,7 @@
     `define ECODE_INT   6'h00
     `define ECODE_ADE   6'h08   // ADEF && ADEM
         `define ESUBCODE_ADEF   9'h000
-        `define ESUBCODE_ADEM   9'h000
+        `define ESUBCODE_ADEM   9'h001
     `define ECODE_ALE   6'h09
     `define ECODE_BRK   6'h0C
     `define ECODE_INE   6'h0D
@@ -70,4 +83,10 @@
     `define CSR_MASK_ERA    32'hffff_ffff
     `define CSR_MASK_EENTRY 32'hffff_ffc0
     `define CSR_MASK_SAVE   32'hffff_ffff
+    // lab9
+    `define CSR_MASK_ECFG   32'h0000_1fff
+    `define CSR_MASK_BADV   32'hffff_ffff
+    `define CSR_MASK_TID    32'hffff_ffff
+    `define CSR_MASK_TCFG   32'hffff_ffff
+    `define CSR_MASK_TICLR  32'h0000_0001
 `endif

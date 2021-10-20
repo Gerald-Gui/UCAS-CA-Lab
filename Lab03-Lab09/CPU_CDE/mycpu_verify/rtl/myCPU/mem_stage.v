@@ -117,13 +117,14 @@ assign load_result = {32{load_byte}} & {{24{load_b_data[ 7] & load_signed}}, loa
                      {32{load_half}} & {{16{load_h_data[15] & load_signed}}, load_h_data} |
                      {32{load_word}} & mem_result;
 
-assign ms_final_result = ms_res_from_mul ? mul_result :
-                            (|ms_load_op) ? load_result :
-                                           ms_alu_result;
+assign ms_final_result = ms_exc_flgs[`EXC_FLG_ALE] ? ms_alu_result :
+                         ms_res_from_mul           ? mul_result    :
+                         (|ms_load_op)             ? load_result   :
+                                                     ms_alu_result;
 
 assign ms_fwd_blk_bus = {ms_gr_we & ms_valid, ms_dest, ms_final_result};
 
-assign ms_to_es_st_cancel = (|ms_exc_flgs) & ms_valid;
+assign ms_to_es_st_cancel = ((|ms_exc_flgs) | ms_inst_ertn) & ms_valid;
 assign ms_csr_blk_bus     = {ms_csr_we & ms_valid, ms_inst_ertn & ms_valid, ms_csr_wnum};
 
 assign ms_exc_flgs = es_to_ms_exc_flgs;

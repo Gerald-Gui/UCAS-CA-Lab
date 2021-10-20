@@ -26,6 +26,7 @@ module wb_stage(
     output [ 5:0] wb_ecode,
     output [ 8:0] wb_esubcode,
     output [31:0] wb_pc,
+    output [31:0] wb_badvaddr,
 
     output ertn_flush,
 
@@ -107,6 +108,7 @@ assign wb_ecode    = {6{ws_exc_flgs[`EXC_FLG_ADEF]}} & `ECODE_ADE |
                      {6{ws_exc_flgs[`EXC_FLG_SYS ]}} & `ECODE_SYS;
 assign wb_esubcode = {9{ws_exc_flgs[`EXC_FLG_ADEF]}} & `ESUBCODE_ADEF;
 assign wb_pc = ws_pc;
+assign wb_badvaddr = ws_final_result;
 
 assign ertn_flush = ws_inst_ertn & ws_valid;
 

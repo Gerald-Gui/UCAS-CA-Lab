@@ -68,7 +68,17 @@ wire [31:0] es_csr_wmask;
 
 wire [31:0] es_result;
 
-assign {es_csr_we      ,
+wire ls_half;
+wire ls_word;
+
+wire es_rdcn_en;
+wire es_rdcn_sel;
+
+reg [63:0] stable_cnter;
+
+assign {es_rdcn_en     ,
+        es_rdcn_sel    ,
+        es_csr_we      ,
         es_csr_re      ,
         es_csr_wnum    ,
         es_csr_wmask   ,
@@ -150,8 +160,9 @@ assign store_data = es_store_op[2] ? {4{es_rkd_value[ 7:0]}} :  // b
                     es_store_op[1] ? {2{es_rkd_value[15:0]}} :  // h
                                         es_rkd_value[31:0];     // w
 
-assign data_sram_en    = ((|es_load_op) || es_mem_we) && es_valid && ~store_cancel;
-assign data_sram_wen   = es_store_op[2] ? (4'h1 <<  es_alu_result[1:0])      : // b
+assign data_sram_en    = ((|es_load_op) || es_mem_we) && es_valid;
+assign data_sram_wen   = store_cancel   ? 4'h0                               :
+                         es_store_op[2] ? (4'h1 <<  es_alu_result[1:0])      : // b
                          es_store_op[1] ? (4'h3 << {es_alu_result[1], 1'b0}) : // h
                          es_store_op[0] ? 4'hf : 4'h0;                         // w
 
@@ -166,10 +177,17 @@ assign es_fwd_blk_bus = {
 
 assign store_cancel = wb_exc | wb_ertn | ms_to_es_st_cancel | (|es_exc_flgs);
 
-assign es_result = es_csr_re ? es_csr_rdata : es_alu_result;
+assign es_result = {es_rdcn_en &  es_rdcn_sel} ? stable_cnter[63:32] :
+                   {es_rdcn_en & ~es_rdcn_sel} ? stable_cnter[31: 0] :
+                    es_csr_re                  ? es_csr_rdata        :
+                                                 es_alu_result;
 
-// TODO(lab9): update ALE logic
-assign es_exc_flgs[`EXC_FLG_ALE ] = 1'b0;
+assign ls_half = es_store_op[1] | es_load_op[3] | es_load_op[0];
+assign ls_word = es_store_op[0] | es_load_op[2];
+
+assign es_exc_flgs[`EXC_FLG_ALE ] = es_valid & ((|es_load_op) || es_mem_we) &
+                                    (ls_half & es_alu_result[0] |
+                                     ls_word & (|es_alu_result[1:0]));
 // other exc flgs from ds
 assign es_exc_flgs[`EXC_FLG_ADEF] = ds_to_es_exc_flgs[`EXC_FLG_ADEF];
 assign es_exc_flgs[`EXC_FLG_BRK ] = ds_to_es_exc_flgs[`EXC_FLG_BRK ];
@@ -178,5 +196,13 @@ assign es_exc_flgs[`EXC_FLG_INT ] = ds_to_es_exc_flgs[`EXC_FLG_INT ];
 assign es_exc_flgs[`EXC_FLG_SYS ] = ds_to_es_exc_flgs[`EXC_FLG_SYS ];
 
 assign es_csr_blk_bus = {es_csr_we & es_valid, es_inst_ertn & es_valid, es_csr_wnum};
+
+always @ (posedge clk) begin
+    if (reset) begin
+        stable_cnter <= 64'b0;
+    end else begin
+        stable_cnter <= stable_cnter + 64'd1;
+    end
+end
 
 endmodule
