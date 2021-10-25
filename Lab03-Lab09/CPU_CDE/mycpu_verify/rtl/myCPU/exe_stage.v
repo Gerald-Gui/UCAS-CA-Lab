@@ -122,14 +122,14 @@ assign es_to_ms_bus = {es_rdcn_en     ,
                        es_pc             //31:0
                       };
 
-assign es_ready_go    = ~(is_div & ~div_finish);
+assign es_ready_go    = ~(is_div & ~div_finish) | (wb_exc | wb_ertn);
 assign es_allowin     = !es_valid || es_ready_go && ms_allowin;
-assign es_to_ms_valid =  es_valid && es_ready_go;
+assign es_to_ms_valid =  es_valid & es_ready_go & ~(wb_exc | wb_ertn);
 always @(posedge clk) begin
     if (reset) begin
         es_valid <= 1'b0;
-    end else if (wb_exc | wb_ertn) begin
-        es_valid <= 1'b0;
+    // end else if (wb_exc | wb_ertn) begin
+    //     es_valid <= 1'b0;
     end else if (es_allowin) begin
         es_valid <= ds_to_es_valid;
     end

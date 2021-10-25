@@ -92,12 +92,12 @@ reg [63:0] stable_cnter;
 
 assign ms_ready_go    = 1'b1;
 assign ms_allowin     = !ms_valid || ms_ready_go && ws_allowin;
-assign ms_to_ws_valid = ms_valid && ms_ready_go;
+assign ms_to_ws_valid = ms_valid & ms_ready_go & ~(wb_exc | wb_ertn);
 always @(posedge clk) begin
     if (reset) begin
         ms_valid <= 1'b0;
-    end else if (wb_exc | wb_ertn) begin
-        ms_valid <= 1'b0;
+    // end else if (wb_exc | wb_ertn) begin
+    //     ms_valid <= 1'b0;
     end else if (ms_allowin) begin
         ms_valid <= es_to_ms_valid;
     end

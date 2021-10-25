@@ -73,8 +73,8 @@ assign ws_allowin  = !ws_valid || ws_ready_go;
 always @(posedge clk) begin
     if (reset) begin
         ws_valid <= 1'b0;
-    end else if (wb_exc | ertn_flush) begin
-        ws_valid <= 1'b0;
+    // end else if (wb_exc | ertn_flush) begin
+    //     ws_valid <= 1'b0;
     end else if (ws_allowin) begin
         ws_valid <= ms_to_ws_valid;
     end
