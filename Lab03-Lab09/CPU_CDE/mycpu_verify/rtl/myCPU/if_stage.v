@@ -38,6 +38,7 @@ assign {br_taken,br_target} = br_bus;
 
 wire [31:0] fs_inst;
 reg  [31:0] fs_pc;
+wire [`EXC_NUM - 1:0] fs_exc_flgs;
 assign fs_to_ds_bus = {
                        fs_exc_flgs,
                        fs_inst ,
@@ -47,7 +48,7 @@ assign fs_to_ds_bus = {
 // pre-IF stage
 assign to_fs_valid  = ~reset;
 assign seq_pc       = fs_pc + 32'h4;
-// assign nextpc       = br_taken ? br_target   : seq_pc; 
+// assign nextpc       = br_taken ? br_target   : seq_pc;
 assign nextpc       = wb_exc   ? exc_entry   :
                       wb_ertn  ? exc_retaddr :
                       br_taken ? br_target   :
@@ -83,7 +84,6 @@ assign inst_sram_wdata = 32'b0;
 
 assign fs_inst         = inst_sram_rdata;
 
-wire [`EXC_NUM - 1:0] fs_exc_flgs;
 assign fs_exc_flgs[`EXC_FLG_ADEF] = |nextpc[1:0];
 // init other exc to 0 by default
 assign fs_exc_flgs[`EXC_FLG_SYS]  = 1'b0;

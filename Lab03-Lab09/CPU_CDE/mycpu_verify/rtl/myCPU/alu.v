@@ -161,8 +161,6 @@ assign alu_result = ({32{op_add | op_sub }} & add_sub_result)
                   | ({32{op_lui          }} & lui_result)
                   | ({32{op_sll          }} & sll_result)
                   | ({32{op_srl | op_sra }} & sr_result)
-                  | ({32{op_mul          }} & mul_result[31:0])
-                  | ({32{op_mulh|op_mulhu}} & mul_result[63:32])
                   | ({32{op_div | op_divu}} & div_result[31:0])
                   | ({32{op_mod | op_modu}} & mod_result[31:0]);
 
