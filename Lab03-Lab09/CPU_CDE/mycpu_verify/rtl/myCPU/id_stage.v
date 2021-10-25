@@ -519,8 +519,7 @@ assign br_target = (inst_beq || inst_bne || inst_blt || inst_bge || inst_bltu ||
  */
 assign ds_exc_flgs[`EXC_FLG_SYS]  = inst_syscall;
 // TODO(lab9): update INE INT BRK logic
-assign ds_exc_flgs[`EXC_FLG_INE]  = ~fs_to_ds_exc_flgs[`EXC_FLG_ADEF] &
-                                    ~(inst_add_w  | inst_sub_w   | inst_slt   | inst_sltu      | inst_nor     |
+assign ds_exc_flgs[`EXC_FLG_INE]  = ~(inst_add_w  | inst_sub_w   | inst_slt   | inst_sltu      | inst_nor     |
                                       inst_and    | inst_or      | inst_xor   | inst_slli_w    | inst_srli_w  |
                                       inst_srai_w | inst_addi_w  | inst_ld_w  | inst_st_w      | inst_jirl    |
                                       inst_b      | inst_bl      | inst_beq   | inst_bne       | inst_lu12i_w |

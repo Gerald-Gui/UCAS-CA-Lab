@@ -100,12 +100,12 @@ assign csr_wmask = ws_csr_wmask;
 assign csr_wval  = ws_csr_wdata;
 
 assign wb_exc      = (|ws_exc_flgs) & ws_valid;
-assign wb_ecode    = {6{ws_exc_flgs[`EXC_FLG_ADEF]}} & `ECODE_ADE |
-                     {6{ws_exc_flgs[`EXC_FLG_ALE ]}} & `ECODE_ALE |
-                     {6{ws_exc_flgs[`EXC_FLG_BRK ]}} & `ECODE_BRK |
-                     {6{ws_exc_flgs[`EXC_FLG_INE ]}} & `ECODE_INE |
-                     {6{ws_exc_flgs[`EXC_FLG_INT ]}} & `ECODE_INT |
-                     {6{ws_exc_flgs[`EXC_FLG_SYS ]}} & `ECODE_SYS;
+assign wb_ecode    = ws_exc_flgs[`EXC_FLG_INT ] ? `ECODE_INT :
+                     ws_exc_flgs[`EXC_FLG_ADEF] ? `ECODE_ADE :
+                     ws_exc_flgs[`EXC_FLG_INE ] ? `ECODE_INE :
+                     ws_exc_flgs[`EXC_FLG_SYS ] ? `ECODE_SYS :
+                     ws_exc_flgs[`EXC_FLG_BRK ] ? `ECODE_BRK :
+                     ws_exc_flgs[`EXC_FLG_ALE ] ? `ECODE_ALE : 6'h00;
 assign wb_esubcode = {9{ws_exc_flgs[`EXC_FLG_ADEF]}} & `ESUBCODE_ADEF;
 assign wb_pc = ws_pc;
 assign wb_badvaddr = ws_final_result;
