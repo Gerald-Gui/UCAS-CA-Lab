@@ -27,7 +27,6 @@ module exe_stage(
     input wb_ertn,
     input ms_to_es_st_cancel,
 
-    // TODO: RAW for csr
     output [`ES_CSR_BLK_BUS_WD-1:0] es_csr_blk_bus
 );
 
@@ -73,8 +72,6 @@ wire ls_word;
 
 wire es_rdcn_en;
 wire es_rdcn_sel;
-
-reg [63:0] stable_cnter;
 
 assign {es_rdcn_en     ,
         es_rdcn_sel    ,
@@ -128,8 +125,6 @@ assign es_to_ms_valid =  es_valid & es_ready_go & ~(wb_exc | wb_ertn);
 always @(posedge clk) begin
     if (reset) begin
         es_valid <= 1'b0;
-    // end else if (wb_exc | wb_ertn) begin
-    //     es_valid <= 1'b0;
     end else if (es_allowin) begin
         es_valid <= ds_to_es_valid;
     end
@@ -179,11 +174,8 @@ assign es_fwd_blk_bus = {
 
 assign store_cancel = wb_exc | wb_ertn | ms_to_es_st_cancel | (|es_exc_flgs);
 
-assign es_result =  /*es_rdcn_en ? stable_cnter[{es_rdcn_sel, 5'b0}+:32] :
-                    /*{es_rdcn_en &  es_rdcn_sel} ? stable_cnter[63:32] :
-                   {es_rdcn_en & ~es_rdcn_sel} ? stable_cnter[31: 0] :*/
-                    es_csr_re                  ? es_csr_rdata        :
-                                                 es_alu_result;
+assign es_result = es_csr_re ? es_csr_rdata :
+                               es_alu_result;
 
 assign ls_half = es_store_op[1] | es_load_op[3] | es_load_op[0];
 assign ls_word = es_store_op[0] | es_load_op[2];
@@ -200,12 +192,5 @@ assign es_exc_flgs[`EXC_FLG_SYS ] = ds_to_es_exc_flgs[`EXC_FLG_SYS ];
 
 assign es_csr_blk_bus = {es_csr_we & es_valid, es_inst_ertn & es_valid, es_csr_wnum};
 
-// always @ (posedge clk) begin
-//     if (reset) begin
-//         stable_cnter <= 64'b0;
-//     end else begin
-//         stable_cnter <= stable_cnter + 64'd1;
-//     end
-// end
 
 endmodule

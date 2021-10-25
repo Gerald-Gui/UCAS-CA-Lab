@@ -29,7 +29,6 @@ module id_stage(
     output [13:0] csr_rnum,
     input  [31:0] csr_rval,
 
-    // TODO: RAW for csrs
     input [`ES_CSR_BLK_BUS_WD-1:0] es_csr_blk_bus,
     input [`MS_CSR_BLK_BUS_WD-1:0] ms_csr_blk_bus,
     input [`WS_CSR_BLK_BUS_WD-1:0] ws_csr_blk_bus
@@ -294,8 +293,6 @@ always @(posedge clk) begin
         ds_valid <= 1'b0;
     end else if (br_taken) begin
         ds_valid <= 1'b0;
-    // end else if (wb_exc | wb_ertn) begin
-    //     ds_valid <= 1'b0;
     end else if (ds_allowin) begin
         ds_valid <= fs_to_ds_valid;
     end
@@ -518,7 +515,6 @@ assign br_target = (inst_beq || inst_bne || inst_blt || inst_bge || inst_bltu ||
  *  exc && int
  */
 assign ds_exc_flgs[`EXC_FLG_SYS]  = inst_syscall;
-// TODO(lab9): update INE INT BRK logic
 assign ds_exc_flgs[`EXC_FLG_INE]  = ~(inst_add_w  | inst_sub_w   | inst_slt   | inst_sltu      | inst_nor     |
                                       inst_and    | inst_or      | inst_xor   | inst_slli_w    | inst_srli_w  |
                                       inst_srai_w | inst_addi_w  | inst_ld_w  | inst_st_w      | inst_jirl    |
