@@ -12,6 +12,6 @@ This repo stores codes and reports from UCAS Computer Architecture Lab 2021 Autu
  - [x] Lab06 ~ Lab07：CPU指令添加专题
    - [x] Lab06：算术逻辑运算与乘除法运算指令
    - [x] Lab07：转移与访存指令
- - [ ] Lab08 ~ Lab09：异常与中断设计专题
+ - [x] Lab08 ~ Lab09：异常与中断设计专题
    - [x] Lab08：添加系统调用异常支持
-   - [ ] Lab09：添加其他异常支持
+   - [x] Lab09：添加其他异常支持
