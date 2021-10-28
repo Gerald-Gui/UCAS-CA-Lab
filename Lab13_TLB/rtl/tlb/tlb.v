@@ -4,7 +4,7 @@ module tlb #(
         input   clk,
 
         // search port 0 (for fetch)
-        input  [              18:0] s0_vppn,
+        input  [              19:0] s0_vppn,
         input  [               9:0] s0_asid,
         output                      s0_found,
         output [$clog2(TLBNUM)-1:0] s0_index,
@@ -16,7 +16,7 @@ module tlb #(
         output                      s0_v,
 
         // search port 1 (for load/store)
-        input  [              18:0] s1_vppn,
+        input  [              19:0] s1_vppn,
         input  [               9:0] s1_asid,
         output                      s1_found,
         output [$clog2(TLBNUM)-1:0] s1_index,
@@ -129,7 +129,7 @@ module tlb #(
     // read port
     assign r_e    = tlb_e   [r_index];
     assign r_vppn = tlb_vppn[r_index];
-    assign r_ps   = tlb_ps  [r_index] ? 6'h22 : 6'h12;
+    assign r_ps   = tlb_ps  [r_index] ? 6'd22 : 6'd12;
     assign r_asid = tlb_asid[r_index];
     assign r_g    = tlb_g   [r_index];
     
@@ -149,43 +149,42 @@ module tlb #(
     genvar i;
     generate for (i = 0; i < TLBNUM; i = i + 1) begin
         assign match0[i] = tlb_e[i] && (tlb_g[i] || tlb_asid[i] == s0_asid) &&
-                            s0_vppn[18:10] == tlb_vppn[i][18:10]            &&  // cmp high bits whatever ps is
-                           (s0_vppn[ 9: 0] == tlb_vppn[i][ 9: 0] || tlb_ps[i]); // if ps == 4 KB, cmp low bits
+                            s0_vppn[19:11] == tlb_vppn[i][18:10]            &&  // cmp high bits whatever ps is
+                           (s0_vppn[10: 1] == tlb_vppn[i][ 9: 0] || tlb_ps[i]); // if ps == 4 KB, cmp low bits
         assign match1[i] = tlb_e[i] && (tlb_g[i] || tlb_asid[i] == s1_asid) &&
-                            s1_vppn[18:10] == tlb_vppn[i][18:10]            &&
-                           (s1_vppn[ 9: 0] == tlb_vppn[i][ 9: 0] || tlb_ps[i]);
+                            s1_vppn[19:11] == tlb_vppn[i][18:10]            &&
+                           (s1_vppn[10: 1] == tlb_vppn[i][ 9: 0] || tlb_ps[i]);
     end
     endgenerate
 
     // search port
     assign s0_found = |match0;
     assign s0_index = $clog2(match0);
-    assign s0_ppn   = tlb_ppn0[s0_index];
-    assign s0_ps    = tlb_ps  [s0_index] ? 6'h22 : 6'h12;
-    assign s0_plv   = tlb_plv0[s0_index];
-    assign s0_mat   = tlb_mat0[s0_index];
-    assign s0_d     = tlb_d0  [s0_index];
-    assign s0_v     = tlb_v0  [s0_index];
+    assign s0_ps    = tlb_ps  [s0_index] ? 6'd22 : 6'd12;
+    assign s0_ppn   = s0_vppn[0] ? tlb_ppn1[s0_index] : tlb_ppn0[s0_index];
+    assign s0_plv   = s0_vppn[0] ? tlb_plv1[s0_index] : tlb_plv0[s0_index];
+    assign s0_mat   = s0_vppn[0] ? tlb_mat1[s0_index] : tlb_mat0[s0_index];
+    assign s0_d     = s0_vppn[0] ? tlb_d1  [s0_index] : tlb_d0  [s0_index];
+    assign s0_v     = s0_vppn[0] ? tlb_v1  [s0_index] : tlb_v0  [s0_index];
 
     assign s1_found = |match1;
     assign s1_index = $clog2(match1);
-    assign s1_ppn   = tlb_ppn1[s1_index];
-    assign s1_ps    = tlb_ps  [s1_index] ? 6'h22 : 6'h12;
-    assign s1_plv   = tlb_plv1[s1_index];
-    assign s1_mat   = tlb_mat1[s1_index];
-    assign s1_d     = tlb_d1  [s1_index];
-    assign s1_v     = tlb_v1  [s1_index];
+    assign s1_ps    = tlb_ps  [s1_index] ? 6'd22 : 6'd12;
+    assign s1_ppn   = s1_vppn[0] ? tlb_ppn1[s1_index] : tlb_ppn0[s1_index];
+    assign s1_plv   = s1_vppn[0] ? tlb_plv1[s1_index] : tlb_plv0[s1_index];
+    assign s1_mat   = s1_vppn[0] ? tlb_mat1[s1_index] : tlb_mat0[s1_index];
+    assign s1_d     = s1_vppn[0] ? tlb_d1  [s1_index] : tlb_d0  [s1_index];
+    assign s1_v     = s1_vppn[0] ? tlb_v1  [s1_index] : tlb_v0  [s1_index];
 
     generate for (i = 0; i < TLBNUM; i = i + 1) begin
        assign inv_match[0][i] = ~tlb_g[i];
        assign inv_match[1][i] =  tlb_g[i];
        assign inv_match[2][i] = s1_asid == tlb_asid[i];
-       assign inv_match[3][i] = s1_vppn[18:10] == tlb_vppn[i][18:10]            &&
-                               (s1_vppn[ 9: 0] == tlb_vppn[i][ 9: 0] || tlb_ps[i]);
+       assign inv_match[3][i] = s1_vppn[19:11] == tlb_vppn[i][18:10]            &&
+                               (s1_vppn[10: 1] == tlb_vppn[i][ 9: 0] || tlb_ps[i]);
     end        
     endgenerate
 
-    // wire [TLBNUM-1:0] inv_op_mask [4:0];
     assign inv_op_mask[0] = 16'b0;
     assign inv_op_mask[1] = 16'b0;
     assign inv_op_mask[2] = inv_match[1];
