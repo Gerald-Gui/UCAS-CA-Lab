@@ -126,6 +126,7 @@ assign es_to_ms_bus = {es_rdcn_en     ,
                        es_csr_wdata   ,
                        es_inst_ertn   ,
                        es_exc_flgs    ,
+                       ls_cancel      ,
                        es_res_from_div,
                        div_res_sel    ,
                        es_res_from_mul,  //75:75
