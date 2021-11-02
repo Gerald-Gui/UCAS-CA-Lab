@@ -133,12 +133,6 @@ if_stage if_stage(
     .fs_to_ds_valid (fs_to_ds_valid ),
     .fs_to_ds_bus   (fs_to_ds_bus   ),
     // inst sram interface
-    .inst_sram_req    (inst_sram_req    ),
-    .inst_sram_wr     (inst_sram_wr     ),
-    .inst_sram_size   (inst_sram_size   ),
-    .inst_sram_addr   (inst_sram_addr   ),
-    .inst_sram_wstrb  (inst_sram_wstrb  ),
-    .inst_sram_wdata  (inst_sram_wdata  ),
     .inst_sram_addr_ok(inst_sram_addr_ok),
     .inst_sram_data_ok(inst_sram_data_ok),
     .inst_sram_rdata  (inst_sram_rdata  ),

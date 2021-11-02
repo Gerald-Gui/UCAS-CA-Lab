@@ -17,12 +17,6 @@ module if_stage(
     output                          fs_to_ds_valid ,
     output [`FS_TO_DS_BUS_WD -1:0]  fs_to_ds_bus   ,
     // inst sram interface
-    output                          inst_sram_req    ,
-    output                          inst_sram_wr     ,
-    output [ 1:0]                   inst_sram_size   ,
-    output [31:0]                   inst_sram_addr   ,
-    output [ 3:0]                   inst_sram_wstrb  ,
-    output [31:0]                   inst_sram_wdata  ,
     input                           inst_sram_addr_ok,
     input                           inst_sram_data_ok,
     input  [31:0]                   inst_sram_rdata,
