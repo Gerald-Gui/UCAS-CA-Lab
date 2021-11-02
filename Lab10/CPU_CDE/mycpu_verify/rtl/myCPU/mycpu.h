@@ -6,7 +6,7 @@
     `define FS_TO_DS_BUS_WD 70
     `define DS_TO_ES_BUS_WD 286
     `define ES_TO_MS_BUS_WD 168
-    `define MS_TO_WS_BUS_WD 158
+    `define MS_TO_WS_BUS_WD 156
     `define WS_TO_RF_BUS_WD 38
 
     `define ES_FWD_BLK_BUS_WD 39

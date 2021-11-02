@@ -202,7 +202,6 @@ exe_stage exe_stage(
     .es_fwd_blk_bus (es_fwd_blk_bus ),
     .es_mul_res_bus (mul_res_bus    ),
     .es_div_res_bus (div_res_bus    ),
-    .div_ms_go      (div_ms_go      ),
     .div_finish     (div_finish     ),
 
     .wb_exc         (wb_exc         ),
@@ -230,7 +229,8 @@ mem_stage mem_stage(
 
     .ms_fwd_blk_bus (ms_fwd_blk_bus ),
     .ms_mul_res_bus (mul_res_bus    ),
-    .div_ms_go      (div_ms_go      ),
+    .ms_div_res_bus (div_res_bus    ),
+    .ms_div_finish  (div_finish     ),
     
     .wb_exc         (wb_exc         ),
     .wb_ertn        (wb_ertn        ),
@@ -253,9 +253,6 @@ wb_stage wb_stage(
     .debug_wb_rf_wen  (debug_wb_rf_wen  ),
     .debug_wb_rf_wnum (debug_wb_rf_wnum ),
     .debug_wb_rf_wdata(debug_wb_rf_wdata),
-
-    .ws_div_res_bus (div_res_bus    ),
-    .ws_div_finish  (div_finish     ),
 
     .csr_we         (csr_we         ),
     .csr_wnum       (csr_wnum       ),

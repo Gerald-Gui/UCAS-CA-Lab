@@ -1,16 +1,19 @@
 module alu(
-    input         clk,
-    input         rst,
-    input  [18:0] alu_op,
-    input  [31:0] alu_src1,
-    input  [31:0] alu_src2,
-    output [31:0] alu_result,
+    input           clk,
+    input           rst,
+    input  [18:0]   alu_op,
+    input  [31:0]   alu_src1,
+    input  [31:0]   alu_src2,
+    output [31:0]   alu_result,
   
     // lab6 added, for mul and div
-    input         es_valid,
-    output        is_div,
-    output        div_finish,
-    output [64:0] mul_res_bus   // to MEM stage
+    input           es_valid,
+    output          is_div,
+    output          div_res_sel,
+    output          div_es_go,
+    output          div_finish,
+    output [64:0]   mul_res_bus,   // to MEM stage
+    output [63:0]   div_res_bus   // to WB stage
 );
 
 wire op_add;    //add operation
@@ -47,8 +50,6 @@ wire [31:0] sll_result;
 wire [63:0] sr64_result;
 wire [31:0] sr_result;
 wire [63:0] mul_result;
-wire [31:0] div_result;
-wire [31:0] mod_result;
 
 wire        div_res_valid;
 wire        divu_res_valid;
@@ -84,6 +85,7 @@ assign op_modu = alu_op[18];
 assign is_div   = op_div | op_divu | op_mod | op_modu;
 wire   use_div  = op_div | op_mod;
 wire   use_divu = op_divu| op_modu;
+assign div_res_sel = op_div | op_divu;
 
 assign adder_a   = alu_src1;
 assign adder_b   = (op_sub | op_slt | op_sltu) ? ~alu_src2 : alu_src2;  //src1 - src2 rj-rk
@@ -145,8 +147,8 @@ divider alu_div(
     .div_signed(use_div),
     .x(alu_src1),
     .y(alu_src2),
-    .s(div_result),
-    .r(mod_result),
+    .div_total_result(div_res_bus),
+    .es_go(div_es_go),
     .complete(div_finish)
 );
 
@@ -160,8 +162,6 @@ assign alu_result = ({32{op_add | op_sub }} & add_sub_result)
                   | ({32{op_xor          }} & xor_result)
                   | ({32{op_lui          }} & lui_result)
                   | ({32{op_sll          }} & sll_result)
-                  | ({32{op_srl | op_sra }} & sr_result)
-                  | ({32{op_div | op_divu}} & div_result[31:0])
-                  | ({32{op_mod | op_modu}} & mod_result[31:0]);
+                  | ({32{op_srl | op_sra }} & sr_result);
 
 endmodule

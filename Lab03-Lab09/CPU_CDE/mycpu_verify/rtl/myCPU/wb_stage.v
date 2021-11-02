@@ -12,23 +12,23 @@ module wb_stage(
     //to rf: for write back
     output [`WS_TO_RF_BUS_WD -1:0]  ws_to_rf_bus  ,
     //trace debug interface
-    output [31:0] debug_wb_pc     ,
-    output [ 3:0] debug_wb_rf_wen ,
-    output [ 4:0] debug_wb_rf_wnum,
-    output [31:0] debug_wb_rf_wdata,
+    output [31:0]                   debug_wb_pc     ,
+    output [ 3:0]                   debug_wb_rf_wen ,
+    output [ 4:0]                   debug_wb_rf_wnum,
+    output [31:0]                   debug_wb_rf_wdata,
 
-    output        csr_we,
-    output [13:0] csr_wnum,
-    output [31:0] csr_wmask,
-    output [31:0] csr_wval,
+    output                          csr_we,
+    output [13:0]                   csr_wnum,
+    output [31:0]                   csr_wmask,
+    output [31:0]                   csr_wval,
 
-    output        wb_exc,
-    output [ 5:0] wb_ecode,
-    output [ 8:0] wb_esubcode,
-    output [31:0] wb_pc,
-    output [31:0] wb_badvaddr,
+    output                          wb_exc,
+    output [ 5:0]                   wb_ecode,
+    output [ 8:0]                   wb_esubcode,
+    output [31:0]                   wb_pc,
+    output [31:0]                   wb_badvaddr,
 
-    output ertn_flush,
+    output                          ertn_flush,
 
     output [`WS_CSR_BLK_BUS_WD-1:0] ws_csr_blk_bus
 );
@@ -47,7 +47,9 @@ wire        ws_inst_ertn;
 wire        ws_gr_we;
 wire [ 4:0] ws_dest;
 wire [31:0] ws_final_result;
+wire [31:0] ws_res_from_ms;
 wire [31:0] ws_pc;
+
 assign {ws_csr_we      ,
         ws_csr_wnum    ,
         ws_csr_wmask   ,
@@ -56,7 +58,7 @@ assign {ws_csr_we      ,
         ws_exc_flgs    ,
         ws_gr_we       ,  //69:69
         ws_dest        ,  //68:64
-        ws_final_result,  //63:32
+        ws_res_from_ms,  //63:32
         ws_pc             //31:0
        } = ms_to_ws_bus_r;
 
@@ -81,6 +83,8 @@ always @(posedge clk) begin
         ms_to_ws_bus_r <= ms_to_ws_bus;
     end
 end
+
+assign ws_final_result = ws_res_from_ms;
 
 assign rf_we    = ws_gr_we & ws_valid & ~wb_exc;
 assign rf_waddr = ws_dest;

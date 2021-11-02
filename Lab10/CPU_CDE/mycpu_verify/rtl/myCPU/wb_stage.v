@@ -12,27 +12,23 @@ module wb_stage(
     //to rf: for write back
     output [`WS_TO_RF_BUS_WD -1:0]  ws_to_rf_bus  ,
     //trace debug interface
-    output [31:0] debug_wb_pc     ,
-    output [ 3:0] debug_wb_rf_wen ,
-    output [ 4:0] debug_wb_rf_wnum,
-    output [31:0] debug_wb_rf_wdata,
+    output [31:0]                   debug_wb_pc     ,
+    output [ 3:0]                   debug_wb_rf_wen ,
+    output [ 4:0]                   debug_wb_rf_wnum,
+    output [31:0]                   debug_wb_rf_wdata,
 
-    // div final res
-    input  [63:0] ws_div_res_bus,
-    input         ws_div_finish,
+    output                          csr_we,
+    output [13:0]                   csr_wnum,
+    output [31:0]                   csr_wmask,
+    output [31:0]                   csr_wval,
 
-    output        csr_we,
-    output [13:0] csr_wnum,
-    output [31:0] csr_wmask,
-    output [31:0] csr_wval,
+    output                          wb_exc,
+    output [ 5:0]                   wb_ecode,
+    output [ 8:0]                   wb_esubcode,
+    output [31:0]                   wb_pc,
+    output [31:0]                   wb_badvaddr,
 
-    output        wb_exc,
-    output [ 5:0] wb_ecode,
-    output [ 8:0] wb_esubcode,
-    output [31:0] wb_pc,
-    output [31:0] wb_badvaddr,
-
-    output ertn_flush,
+    output                          ertn_flush,
 
     output [`WS_CSR_BLK_BUS_WD-1:0] ws_csr_blk_bus
 );
@@ -58,18 +54,12 @@ wire [31:0] ws_final_result;
 wire [31:0] ws_res_from_ms;
 wire [31:0] ws_pc;
 
-wire        ws_res_from_div;
-wire        div_res_sel;
-wire [31:0] div_result;
-
 assign {ws_csr_we      ,
         ws_csr_wnum    ,
         ws_csr_wmask   ,
         ws_csr_wdata   ,
         ws_inst_ertn   ,
         ws_exc_flgs    ,
-        ws_res_from_div,
-        div_res_sel    ,
         ws_gr_we       ,  //69:69
         ws_dest        ,  //68:64
         ws_res_from_ms,  //63:32
@@ -112,10 +102,7 @@ always @(posedge clk) begin
     end
 end
 
-assign div_result = div_res_sel ? ws_div_res_bus[63:32] :
-                                  ws_div_res_bus[31: 0];
-
-assign ws_final_result = ws_res_from_div ? div_result : ws_res_from_ms;
+assign ws_final_result = ws_res_from_ms;
 
 assign rf_we    = ws_gr_we & ws_valid & ~(wb_exc | ertn_flush | wb_ertn_r | wb_exc_r);
 assign rf_waddr = ws_dest;

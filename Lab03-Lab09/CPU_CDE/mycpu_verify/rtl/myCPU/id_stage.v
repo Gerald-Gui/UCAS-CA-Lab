@@ -198,12 +198,14 @@ wire            es_blk_we;
 wire [ 4:0]     es_waddr;
 wire [31:0]     es_wdata;
 wire            ms_fwd_we;
+wire            ms_blk_we;
 wire [ 4:0]     ms_waddr;
 wire [31:0]     ms_wdata;
 
 wire            es_blk;
 wire            es_reg1_hazard;
 wire            es_reg2_hazard;
+wire            ms_blk;
 wire            ms_reg1_hazard;
 wire            ms_reg2_hazard;
 wire            ws_reg1_hazard;
@@ -230,7 +232,7 @@ wire ws_csr_blk;
 
 // RAW for common usr insts
 assign {es_fwd_we, es_blk_we, es_waddr, es_wdata} = es_fwd_blk_bus;
-assign {ms_fwd_we, ms_waddr, ms_wdata} = ms_fwd_blk_bus;
+assign {ms_fwd_we, ms_blk_we, ms_waddr, ms_wdata} = ms_fwd_blk_bus;
 
 assign src_reg1 = ~ds_exc_flgs[`EXC_FLG_INE] & ~(inst_b | inst_bl | inst_csrrd | inst_csrwr | inst_syscall | inst_ertn | inst_break |
                                                  inst_rdcntid_w | inst_rdcntvh_w | inst_rdcntvl_w);
@@ -246,6 +248,12 @@ assign es_blk = es_blk_we && es_waddr != 0 && (
                 src_reg1 && es_waddr == rf_raddr1 ||
                 src_reg2 && es_waddr == rf_raddr2
                 );
+
+assign ms_blk = ms_blk_we && ms_waddr != 0 && (
+                src_reg1 && ms_waddr == rf_raddr1 ||
+                src_reg2 && ms_waddr == rf_raddr2
+                );
+
 assign es_reg1_hazard = es_fwd_we && es_waddr != 0 && src_reg1 && es_waddr == rf_raddr1;
 assign es_reg2_hazard = es_fwd_we && es_waddr != 0 && src_reg2 && es_waddr == rf_raddr2;
 assign ms_reg1_hazard = ms_fwd_we && ms_waddr != 0 && src_reg1 && ms_waddr == rf_raddr1;
@@ -283,7 +291,7 @@ assign ds_to_es_bus = {
                       };
 
 // with blk
-assign ds_ready_go    = ~(es_blk | csr_blk) | (wb_exc | wb_ertn);
+assign ds_ready_go    = ~(es_blk | ms_blk | csr_blk) | (wb_exc | wb_ertn);
 
 assign ds_allowin     = !ds_valid || ds_ready_go && es_allowin;
 assign ds_to_es_valid = ds_valid & ds_ready_go & ~(wb_exc | wb_ertn);

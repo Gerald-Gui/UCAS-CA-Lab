@@ -19,12 +19,13 @@ module mem_stage(
     // blk bus to id
     output [`MS_FWD_BLK_BUS_WD-1:0] ms_fwd_blk_bus,
     // mul final res
-    input  [64:0] ms_mul_res_bus,
-    input  div_ms_go,
+    input  [64:0]                   ms_mul_res_bus,
+    input  [63:0]                   ms_div_res_bus,
+    input                           ms_div_finish,
 
-    input  wb_exc,
-    input  wb_ertn,
-    output ms_to_es_ls_cancel,
+    input                           wb_exc,
+    input                           wb_ertn,
+    output                          ms_to_es_ls_cancel,
     output [`MS_CSR_BLK_BUS_WD-1:0] ms_csr_blk_bus
 );
 
@@ -57,6 +58,7 @@ wire        ms_rdcn_sel;
 
 wire        mul_res_sel;
 wire [31:0] mul_result;
+wire [31:0] div_result;
 wire [31:0] mem_result;
 wire        load_byte;
 wire        load_half;
@@ -73,7 +75,7 @@ wire        ls_cancel;
 
 reg [63:0] stable_cnter;
 
-assign ms_ready_go    = (|(ms_load_op) || ms_store) ? (data_sram_data_ok | (|ms_exc_flgs) | ls_cancel) : ~(ms_res_from_div & ~div_ms_go);
+assign ms_ready_go    = (|(ms_load_op) || ms_store) ? (data_sram_data_ok | (|ms_exc_flgs) | ls_cancel) : ~(ms_res_from_div & ~ms_div_finish);
 assign ms_allowin     = !ms_valid || ms_ready_go && ws_allowin;
 assign ms_to_ws_valid = ms_valid & ms_ready_go & (~(wb_exc | wb_ertn | wb_exc_r | wb_ertn_r));
 
@@ -103,8 +105,6 @@ assign ms_to_ws_bus = {ms_csr_we      ,
                        ms_csr_wdata   ,
                        ms_inst_ertn   ,
                        ms_exc_flgs    ,
-                       ms_res_from_div,
-                       div_res_sel    ,
                        ms_gr_we       ,  //69:69
                        ms_dest        ,  //68:64
                        ms_final_result,  //63:32
@@ -141,6 +141,9 @@ assign mul_res_sel = ms_mul_res_bus[64];
 assign mul_result  = mul_res_sel ? ms_mul_res_bus[63:32] :
                                    ms_mul_res_bus[31: 0];
 
+assign div_result = div_res_sel ? ms_div_res_bus[63:32] :
+                                  ms_div_res_bus[31: 0];
+
 assign load_byte = ms_load_op[4] | ms_load_op[1];
 assign load_half = ms_load_op[3] | ms_load_op[0];
 assign load_word = ms_load_op[2];
@@ -156,11 +159,11 @@ assign load_result = {32{load_byte}} & {{24{load_b_data[ 7] & load_signed}}, loa
 assign ms_final_result = ms_rdcn_en ? stable_cnter[{ms_rdcn_sel, 5'b0}+:32] :
                          ms_exc_flgs[`EXC_FLG_ALE] ? ms_alu_result :
                          ms_res_from_mul           ? mul_result    :
-                         ms_res_from_div           ? mul_result    :
+                         ms_res_from_div           ? div_result    :
                          (|ms_load_op)             ? load_result   :
                                                      ms_alu_result;
 
-assign ms_fwd_blk_bus = {ms_gr_we & ms_to_ws_valid, (ms_res_from_div | (|ms_load_op)) & ms_valid, ms_dest, ms_final_result};
+assign ms_fwd_blk_bus = {ms_gr_we & ms_to_ws_valid, ((|ms_load_op)) & ms_valid, ms_dest, ms_final_result};
 
 assign ms_to_es_ls_cancel = ((|ms_exc_flgs) | ms_inst_ertn) & ms_valid;
 assign ms_csr_blk_bus     = {ms_csr_we & ms_valid, ms_inst_ertn & ms_valid, ms_csr_wnum};

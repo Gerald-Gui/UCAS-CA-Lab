@@ -4,12 +4,12 @@
     `define BR_BUS_WD       33
     `define FS_TO_DS_BUS_WD 70
     `define DS_TO_ES_BUS_WD 286
-    `define ES_TO_MS_BUS_WD 164
+    `define ES_TO_MS_BUS_WD 166
     `define MS_TO_WS_BUS_WD 156
     `define WS_TO_RF_BUS_WD 38
 
     `define ES_FWD_BLK_BUS_WD 39
-    `define MS_FWD_BLK_BUS_WD 38
+    `define MS_FWD_BLK_BUS_WD 39
 
     `define EXC_NUM         6
     `define EXC_FLG_SYS     0

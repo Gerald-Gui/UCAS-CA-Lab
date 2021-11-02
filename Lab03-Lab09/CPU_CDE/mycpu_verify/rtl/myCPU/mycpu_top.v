@@ -43,6 +43,9 @@ wire [`ES_FWD_BLK_BUS_WD - 1:0] es_fwd_blk_bus;
 wire [`MS_FWD_BLK_BUS_WD - 1:0] ms_fwd_blk_bus;
 
 wire [64:0] mul_res_bus;
+wire [63:0] div_res_bus;
+wire        div_ms_go;
+wire        div_finish;
 
 // CSR ports
 wire [13:0] csr_wnum;
@@ -143,8 +146,10 @@ exe_stage exe_stage(
     .data_sram_addr (data_sram_addr ),
     .data_sram_wdata(data_sram_wdata),
 
-    .es_fwd_blk_bus (es_fwd_blk_bus),
-    .es_mul_res_bus (mul_res_bus   ),
+    .es_fwd_blk_bus (es_fwd_blk_bus ),
+    .es_mul_res_bus (mul_res_bus    ),
+    .es_div_res_bus (div_res_bus    ),
+    .div_finish     (div_finish     ),
 
     .wb_exc         (wb_exc         ),
     .wb_ertn        (wb_ertn        ),
@@ -168,8 +173,10 @@ mem_stage mem_stage(
     //from data-sram
     .data_sram_rdata(data_sram_rdata),
 
-    .ms_fwd_blk_bus (ms_fwd_blk_bus),
-    .ms_mul_res_bus (mul_res_bus   ),
+    .ms_fwd_blk_bus (ms_fwd_blk_bus ),
+    .ms_mul_res_bus (mul_res_bus    ),
+    .ms_div_res_bus (div_res_bus    ),
+    .ms_div_finish  (div_finish     ),
     
     .wb_exc         (wb_exc         ),
     .wb_ertn        (wb_ertn        ),

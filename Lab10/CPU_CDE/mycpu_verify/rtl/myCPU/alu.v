@@ -11,7 +11,6 @@ module alu(
     output          is_div,
     output          div_res_sel,
     output          div_es_go,
-    output          div_ms_go,
     output          div_finish,
     output [64:0]   mul_res_bus,   // to MEM stage
     output [63:0]   div_res_bus   // to WB stage
@@ -150,7 +149,6 @@ divider alu_div(
     .y(alu_src2),
     .div_total_result(div_res_bus),
     .es_go(div_es_go),
-    .ms_go(div_ms_go),
     .complete(div_finish)
 );
 

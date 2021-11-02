@@ -1,31 +1,33 @@
 `include "mycpu.h"
 
 module exe_stage(
-    input                          clk           ,
-    input                          reset         ,
+    input                           clk           ,
+    input                           reset         ,
     //allowin
-    input                          ms_allowin    ,
-    output                         es_allowin    ,
+    input                           ms_allowin    ,
+    output                          es_allowin    ,
     //from ds
-    input                          ds_to_es_valid,
-    input  [`DS_TO_ES_BUS_WD -1:0] ds_to_es_bus  ,
+    input                           ds_to_es_valid,
+    input  [`DS_TO_ES_BUS_WD -1:0]  ds_to_es_bus  ,
     //to ms
-    output                         es_to_ms_valid,
-    output [`ES_TO_MS_BUS_WD -1:0] es_to_ms_bus  ,
+    output                          es_to_ms_valid,
+    output [`ES_TO_MS_BUS_WD -1:0]  es_to_ms_bus  ,
     // data sram interface
-    output        data_sram_en   ,
-    output [ 3:0] data_sram_wen  ,
-    output [31:0] data_sram_addr ,
-    output [31:0] data_sram_wdata,
+    output                          data_sram_en   ,
+    output [ 3:0]                   data_sram_wen  ,
+    output [31:0]                   data_sram_addr ,
+    output [31:0]                   data_sram_wdata,
 
     // blk bus to id
     output [`ES_FWD_BLK_BUS_WD-1:0] es_fwd_blk_bus,
     // mul pipe res for MEM
-    output [64:0] es_mul_res_bus,
+    output [64:0]                   es_mul_res_bus,
+    output [63:0]                   es_div_res_bus,
+    output                          div_finish,
 
-    input wb_exc,
-    input wb_ertn,
-    input ms_to_es_st_cancel,
+    input                           wb_exc,
+    input                           wb_ertn,
+    input                           ms_to_es_st_cancel,
 
     output [`ES_CSR_BLK_BUS_WD-1:0] es_csr_blk_bus
 );
@@ -53,8 +55,10 @@ wire        store_cancel  ;
 wire [ 4:0] es_load_op;
 wire [ 2:0] es_store_op;
 wire        es_res_from_mul;
+wire        es_res_from_div;
 wire        is_div;
-wire        div_finish;
+wire        div_res_sel;
+wire        div_es_go;
 wire        waiting_ready;
 
 wire [`EXC_NUM - 1:0] es_exc_flgs;
@@ -72,6 +76,8 @@ wire ls_word;
 
 wire es_rdcn_en;
 wire es_rdcn_sel;
+
+assign es_res_from_div = is_div;
 
 assign {es_rdcn_en     ,
         es_rdcn_sel    ,
@@ -111,6 +117,8 @@ assign es_to_ms_bus = {es_rdcn_en     ,
                        es_csr_wdata   ,
                        es_inst_ertn   ,
                        es_exc_flgs    ,
+                       es_res_from_div,
+                       div_res_sel    ,
                        es_res_from_mul,  //75:75
                        es_load_op     ,  //74:70
                        es_gr_we       ,  //69:69
@@ -119,7 +127,7 @@ assign es_to_ms_bus = {es_rdcn_en     ,
                        es_pc             //31:0
                       };
 
-assign es_ready_go    = ~(is_div & ~div_finish) | (wb_exc | wb_ertn);
+assign es_ready_go    = ~(is_div & ~div_es_go) | (wb_exc | wb_ertn);
 assign es_allowin     = !es_valid || es_ready_go && ms_allowin;
 assign es_to_ms_valid =  es_valid & es_ready_go & ~(wb_exc | wb_ertn);
 always @(posedge clk) begin
@@ -141,16 +149,19 @@ assign es_alu_src2 = es_src2_is_imm ? es_imm :
                                       es_rkd_value;
 
 alu u_alu(
-    .clk        (clk          ),
-    .rst        (reset        ),
-    .alu_op     (es_alu_op    ),
-    .alu_src1   (es_alu_src1  ),
-    .alu_src2   (es_alu_src2  ),
-    .alu_result (es_alu_result),
-    .es_valid   (es_valid     ),
-    .is_div     (is_div       ),
-    .div_finish (div_finish   ),
-    .mul_res_bus(es_mul_res_bus)
+    .clk        (clk            ),
+    .rst        (reset          ),
+    .alu_op     (es_alu_op      ),
+    .alu_src1   (es_alu_src1    ),
+    .alu_src2   (es_alu_src2    ),
+    .alu_result (es_alu_result  ),
+    .es_valid   (es_valid       ),
+    .is_div     (is_div         ),
+    .div_res_sel(div_res_sel    ),
+    .div_es_go  (div_es_go      ),
+    .div_finish (div_finish     ),
+    .mul_res_bus(es_mul_res_bus ),
+    .div_res_bus(es_div_res_bus )
     );
 
 assign store_data = es_store_op[2] ? {4{es_rkd_value[ 7:0]}} :  // b
@@ -168,7 +179,7 @@ assign data_sram_wdata = store_data;
 
 assign es_fwd_blk_bus = {
     es_gr_we & es_valid,
-    ((|es_load_op) | es_res_from_mul) & es_valid,
+    ((|es_load_op) | es_res_from_mul | es_res_from_div) & es_valid,
     es_dest,
     es_result};
 
