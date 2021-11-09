@@ -72,10 +72,7 @@ module pre_if_stage (
     end
 
     //to fs
-    assign pfs_to_fs_bus = {inst_sram_data_ok && fs_block ? 1'b1 : inst_sram_data_ok_r,//64:64
-                            inst_sram_data_ok && fs_block? inst_sram_rdata : inst_buff,          //63:32
-                            nextpc              //31:0
-                           };
+    assign pfs_to_fs_bus = nextpc;
 
     //inst_sram
     always @(posedge clk) begin

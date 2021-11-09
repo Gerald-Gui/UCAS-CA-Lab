@@ -2,7 +2,7 @@
     `define MYCPU_H
 
     `define BR_BUS_WD       35
-    `define PFS_TO_FS_BUS_WD 65
+    `define PFS_TO_FS_BUS_WD 32
     `define FS_TO_DS_BUS_WD 70
     `define DS_TO_ES_BUS_WD 286
     `define ES_TO_MS_BUS_WD 168
