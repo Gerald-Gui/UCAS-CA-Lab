@@ -82,48 +82,17 @@ reg  [ 3:0] arid_r   ;
 reg  [31:0] araddr_r ;
 reg  [ 2:0] arsize_r ;
 reg         arvalid_r;
-reg         rready_r ;
+// reg         rready_r ;
 reg  [31:0] awaddr_r ;
 reg  [ 2:0] awsize_r ;
 reg         awvalid_r;
+reg         awready_valid;
 reg  [31:0] wdata_r  ;
 reg  [ 3:0] wstrb_r  ;
 reg         wvalid_r ;
 reg         bready_r ;
 
 reg  [ 3:0] rid_r;
-
-// fixed assignment
-// ar
-assign arid    = arid_r;
-assign araddr  = araddr_r;
-assign arlen   = 8'b0;
-assign arsize  = arsize_r;
-assign arburst = 2'b1;
-assign arlock  = 2'b0;
-assign arcache = 4'b0;
-assign arprot  = 3'b0;
-assign arvalid = arvalid_r;
-// r
-assign rready  = rready_r;
-// aw
-assign awid    = 4'b1;
-assign awaddr  = awaddr_r;
-assign awlen   = 8'b0;
-assign awsize  = awsize_r;
-assign awburst = 2'b01;
-assign awlock  = 2'b0;
-assign awcache = 4'b0;
-assign awprot  = 3'b0;
-assign awvalid = awvalid_r;
-// w
-assign wid     = 4'b1;
-assign wdata   = wdata_r;
-assign wstrb   = wstrb_r;
-assign wlast   = 1'b1;
-assign wvalid  = wvalid_r;
-// b
-assign bready  = bready_r;
 
 // sram data buffer
 reg  [31:0] inst_sram_data_buffer;
@@ -161,6 +130,41 @@ reg  [ 3:0] wrd_cur_state;
 reg  [ 3:0] wrd_nxt_state;
 reg  [ 2:0] wresp_cur_state;
 reg  [ 2:0] wresp_nxt_state;
+
+reg  [ 1:0] read_business_counter [1:0];
+reg  [ 1:0] write_business_counter;
+
+// fixed assignment
+// ar
+assign arid    = arid_r;
+assign araddr  = araddr_r;
+assign arlen   = 8'b0;
+assign arsize  = arsize_r;
+assign arburst = 2'b1;
+assign arlock  = 2'b0;
+assign arcache = 4'b0;
+assign arprot  = 3'b0;
+assign arvalid = arvalid_r;
+// r
+assign rready  = |read_business_counter[0] || |read_business_counter[1];
+// aw
+assign awid    = 4'b1;
+assign awaddr  = awaddr_r;
+assign awlen   = 8'b0;
+assign awsize  = awsize_r;
+assign awburst = 2'b01;
+assign awlock  = 2'b0;
+assign awcache = 4'b0;
+assign awprot  = 3'b0;
+assign awvalid = awvalid_r;
+// w
+assign wid     = 4'b1;
+assign wdata   = wdata_r;
+assign wstrb   = wstrb_r;
+assign wlast   = 1'b1;
+assign wvalid  = wvalid_r;
+// b
+assign bready  = bready_r;
 
 // current state
 always @(posedge aclk) begin
@@ -212,7 +216,7 @@ always @(*) begin
 
     case(rdata_cur_state)
         READ_DATA_RST: begin
-            if(arready && arvalid) begin
+            if((arready && arvalid) || |read_business_counter[0] || |read_business_counter[1]) begin
                 rdata_nxt_state = READ_DATA_START;
             end else begin
                 rdata_nxt_state = READ_DATA_RST;
@@ -226,7 +230,9 @@ always @(*) begin
             end
         end
         READ_DATA_END: begin
-            if(arready && arvalid) begin
+            if (rvalid && rready) begin
+                rdata_nxt_state = READ_DATA_END;
+            end else if(|read_business_counter[0] || |read_business_counter[1]) begin
                 rdata_nxt_state = READ_DATA_START;
             end else begin
                 rdata_nxt_state = READ_DATA_RST;
@@ -252,7 +258,7 @@ always @(*) begin
             end
         end
         WRITE_START: begin
-            if(awvalid && awready) begin
+            if(wvalid && wready) begin
                 wrd_nxt_state = WRITE_RD_END;
             end else begin
                 wrd_nxt_state = wrd_nxt_state;
@@ -267,7 +273,7 @@ always @(*) begin
 
     case(wresp_cur_state)
         WRITE_RESPONSE_RST: begin
-            if(awvalid && awready) begin
+            if(wvalid && wready) begin
                 wresp_nxt_state = WRITE_RESPONSE_START;
             end else begin
                 wresp_nxt_state = WRITE_RESPONSE_RST;
@@ -281,7 +287,9 @@ always @(*) begin
             end
         end
         WRITE_RESPONSE_END: begin
-            if(awvalid && awready) begin
+            if(bvalid && bready) begin
+                wresp_nxt_state = WRITE_RESPONSE_END;
+            end if((wvalid && wready) || (write_business_counter != 2'b0)) begin
                 wresp_nxt_state = WRITE_RESPONSE_START;
             end else begin
                 wresp_nxt_state = WRITE_RESPONSE_RST;
@@ -290,6 +298,50 @@ always @(*) begin
         default:
             wresp_nxt_state = wresp_nxt_state;
     endcase
+end
+
+// use counter to deal with multi-business
+always @(posedge aclk) begin
+    if(~aresetn) begin
+        read_business_counter[0] <= 2'b0;
+        read_business_counter[1] <= 2'b0;
+    end else if(arready && arvalid && rvalid && rready) begin
+        if(arid == 4'b0 && rid == 4'b0) begin
+            read_business_counter[0] <= read_business_counter[0];
+        end else if(arid == 4'b1 && rid == 4'b1) begin
+            read_business_counter[1] <= read_business_counter[1];
+        end else if(arid == 4'b0 && rid == 4'b1) begin
+            read_business_counter[0] <= read_business_counter[0] + 2'b1;
+            read_business_counter[1] <= read_business_counter[1] - 2'b1;
+        end else if(arid == 4'b1 && rid == 4'b0) begin
+            read_business_counter[0] <= read_business_counter[0] - 2'b1;
+            read_business_counter[1] <= read_business_counter[1] + 2'b1;
+        end
+    end else if(arready && arvalid) begin
+        if(arid == 4'b0) begin
+            read_business_counter[0] <= read_business_counter[0] + 2'b1;
+        end else if(arid == 4'b1) begin
+            read_business_counter[1] <= read_business_counter[1] + 2'b1;
+        end
+    end else if(rvalid && rready) begin
+        if(rid == 4'b0) begin
+            read_business_counter[0] <= read_business_counter[0] - 2'b1;
+        end else if(rid == 4'b1) begin
+            read_business_counter[1] <= read_business_counter[1] - 2'b1;
+        end
+    end
+end
+
+always @(posedge aclk) begin
+    if(~aresetn) begin
+        write_business_counter <= 2'b0;
+    end else if(bvalid && bready && wvalid && wready) begin
+        write_business_counter <= write_business_counter;
+    end else if(wvalid && wready) begin
+        write_business_counter <= write_business_counter + 2'b1;
+    end else if(bvalid && bready) begin
+        write_business_counter <= write_business_counter - 2'b1;
+    end
 end
 
 // AXI
@@ -326,16 +378,6 @@ always @(posedge aclk) begin
     end
 end
 
-// r
-always @(posedge aclk) begin
-    if(~aresetn || rvalid) begin
-        rready_r <= 1'b0;
-    end else if(rdata_nxt_state == READ_DATA_START) begin
-        rready_r <= 1'b1;
-    end else begin
-        rready_r <= rready_r;
-    end
-end
 
 always @(posedge aclk) begin
     if(~aresetn || rdata_nxt_state == READ_DATA_RST) begin
@@ -363,12 +405,22 @@ always @(posedge aclk) begin
 end
 
 always @(posedge aclk) begin
-    if(~aresetn || awready) begin
+    if(~aresetn || awready || awready_valid) begin
         awvalid_r <= 1'b0;
     end else if(wrd_cur_state == WRITE_START) begin
         awvalid_r <= 1'b1;
     end else begin
         awvalid_r <= awvalid_r;
+    end
+end
+
+always @(posedge aclk) begin
+    if(~aresetn) begin
+        awready_valid <= 1'b0;
+    end else if(awvalid && awready) begin
+        awready_valid <= 1'b1;
+    end else if(wrd_nxt_state == WRITE_RD_END) begin
+        awready_valid <= 1'b0;
     end
 end
 

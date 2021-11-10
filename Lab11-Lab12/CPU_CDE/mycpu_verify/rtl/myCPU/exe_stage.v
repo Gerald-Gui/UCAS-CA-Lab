@@ -203,7 +203,7 @@ assign store_data = es_store_op[2] ? {4{es_rkd_value[ 7:0]}} :  // b
                     es_store_op[1] ? {2{es_rkd_value[15:0]}} :  // h
                                         es_rkd_value[31:0];     // w
 
-assign data_sram_req   = ((|es_load_op) || es_mem_we) && es_valid && ~(wb_exc | wb_ertn | wb_exc_r | wb_ertn_r) && !es_addr_ok_r && ~ls_cancel;
+assign data_sram_req   = ((|es_load_op) || es_mem_we) && es_valid && ~(wb_exc | wb_ertn | wb_exc_r | wb_ertn_r) && !es_addr_ok_r && ~ls_cancel && ms_allowin;
 assign data_sram_wr    = es_mem_we && es_valid;
 assign data_sram_size  = es_store_op[1] ? 2'h1     : // h
                          es_store_op[0] ? 2'h2 : 2'h0;   

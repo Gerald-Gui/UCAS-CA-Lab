@@ -85,7 +85,7 @@ module if_stage(
         else if(!fs_inst_valid && inst_sram_data_ok && !fs_inst_cancel && !ds_allowin) begin
             fs_inst_valid <= 1'b1;
         end
-        else if (ds_allowin || (wb_ertn | wb_exc) ) begin
+        else if (ds_allowin || fs_inst_cancel) begin
             fs_inst_valid <= 1'b0;
         end
 
@@ -95,7 +95,7 @@ module if_stage(
         else if(!fs_inst_valid && inst_sram_data_ok && !fs_inst_cancel && !ds_allowin) begin
             fs_inst_buff <= inst_sram_rdata;
         end
-        else if (ds_allowin || (wb_ertn | wb_exc) ) begin
+        else if (ds_allowin || fs_inst_cancel) begin
             fs_inst_buff <= 32'b0;
         end
     end
@@ -115,7 +115,7 @@ module if_stage(
             wb_exc_r <= 1'b1;
         end else if (wb_ertn) begin
             wb_ertn_r <= 1'b1;
-        end else if (fs_allowin && pfs_to_fs_valid)begin
+        end else if (pfs_to_fs_valid && fs_allowin)begin
             wb_exc_r <= 1'b0;
             wb_ertn_r <= 1'b0;
         end 
