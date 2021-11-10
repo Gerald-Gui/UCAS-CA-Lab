@@ -51,9 +51,6 @@ wire [63:0] sr64_result;
 wire [31:0] sr_result;
 wire [63:0] mul_result;
 
-wire        div_res_valid;
-wire        divu_res_valid;
-
 // 32-bit adder
 wire [31:0] adder_a;
 wire [31:0] adder_b;

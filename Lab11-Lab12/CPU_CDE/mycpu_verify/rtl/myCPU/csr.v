@@ -95,7 +95,10 @@ module csr(
      *  PRMD
      */
     always @ (posedge clk) begin
-        if (wb_exc) begin
+        if(rst) begin
+            csr_prmd_pie <= 1'b0;
+            csr_prmd_pplv <= 2'b0;
+        end else if (wb_exc) begin
             csr_prmd_pie  <= csr_crmd_ie;
             csr_prmd_pplv <= csr_crmd_plv;
         end else if (csr_we && csr_wnum == `CSR_PRMD) begin
@@ -139,7 +142,9 @@ module csr(
         // 10  undefined -> reserve to 0
         csr_estat_is[10]  <= 1'b0;
         // 11  timer int
-        if (timer_cnt == 32'b0) begin
+        if(rst) begin
+            csr_estat_is[11] <= 1'b0;
+        end else if (timer_cnt == 32'b0) begin
             csr_estat_is[11] <= 1'b1;
         end else if (csr_we && csr_wnum == `CSR_TICLR    &&
                                csr_wmask[`CSR_TICLR_CLR] &&
@@ -153,7 +158,10 @@ module csr(
     // field: ECODE     21:16
     //        ESUBCODE  30:22
     always @ (posedge clk) begin
-        if (wb_exc) begin
+        if (rst) begin
+            csr_estat_ecode    <= 6'b0;
+            csr_estat_esubcode <= 9'b0;
+        end else if (wb_exc) begin
             csr_estat_ecode    <= wb_ecode;
             csr_estat_esubcode <= wb_esubcode;
         end
@@ -169,7 +177,9 @@ module csr(
      *  ERA
      */
     always @ (posedge clk) begin
-        if (wb_exc) begin
+        if(rst) begin
+            csr_era_pc <= 32'b0;
+        end else if (wb_exc) begin
             csr_era_pc <= wb_pc;
         end else if (csr_we && csr_wnum == `CSR_ERA) begin
             csr_era_pc <= csr_wmask[`CSR_ERA_PC] & csr_wval[`CSR_ERA_PC] |
@@ -182,7 +192,9 @@ module csr(
      *  EENTRY
      */
     always @ (posedge clk) begin
-        if (csr_we && csr_wnum == `CSR_EENTRY) begin
+        if (rst) begin
+            csr_eentry_va <= 26'b0;
+        end else if (csr_we && csr_wnum == `CSR_EENTRY) begin
             csr_eentry_va <= csr_wmask[`CSR_EENTRY_VA] & csr_wval[`CSR_EENTRY_VA] |
                             ~csr_wmask[`CSR_EENTRY_VA] & csr_eentry_va;
         end
@@ -193,7 +205,12 @@ module csr(
      *  SAVE 0~3
      */
     always @ (posedge clk) begin
-        if (csr_we) begin
+        if(rst) begin
+            csr_save_data[0] <= 32'b0;
+            csr_save_data[1] <= 32'b0;
+            csr_save_data[2] <= 32'b0;
+            csr_save_data[3] <= 32'b0;
+        end else if (csr_we) begin
             if (csr_wnum == `CSR_SAVE0) begin
                 csr_save_data[0] <= csr_wmask[`CSR_SAVE_DATA] & csr_wval[`CSR_SAVE_DATA] |
                                    ~csr_wmask[`CSR_SAVE_DATA] & csr_save_data[0];
@@ -222,6 +239,9 @@ module csr(
      *  BADV
      */
     always @ (posedge clk) begin
+        if(rst)begin
+            csr_badv_vaddr <= 32'b0;
+        end
         if (wb_exc) begin
             if (wb_ecode == `ECODE_ADE) begin
                 if (wb_esubcode == `ESUBCODE_ADEF) begin
@@ -253,6 +273,8 @@ module csr(
     always @ (posedge clk) begin
         if (rst) begin
             csr_tcfg_en <= 1'b0;
+            csr_tcfg_period <= 1'b0;
+            csr_tcfg_initval <= 30'b0;
         end else if (csr_we && csr_wnum == `CSR_TCFG) begin
             csr_tcfg_en      <= csr_wmask[`CSR_TCFG_EN] & csr_wval[`CSR_TCFG_EN] |
                                ~csr_wmask[`CSR_TCFG_EN] & csr_tcfg_en;

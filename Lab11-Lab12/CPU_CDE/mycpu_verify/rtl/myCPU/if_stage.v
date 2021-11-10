@@ -30,8 +30,6 @@ module if_stage(
     reg        wb_exc_r;
     reg        wb_ertn_r;
 
-    reg        wrong_inst_counter;
-
     reg         fs_valid;
     wire        fs_ready_go;
 
@@ -101,7 +99,9 @@ module if_stage(
     end
 
     always @(posedge clk) begin
-        if(pfs_to_fs_valid && fs_allowin) begin
+        if(reset) begin
+            pfs_to_fs_bus_r <= `PFS_TO_FS_BUS_WD'b0;
+        end else if(pfs_to_fs_valid && fs_allowin) begin
             pfs_to_fs_bus_r <= pfs_to_fs_bus;
         end
     end

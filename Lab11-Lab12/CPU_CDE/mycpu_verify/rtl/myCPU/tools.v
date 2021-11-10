@@ -340,6 +340,7 @@ module find_64 (
         if(rst || ~div || complete) begin
             cnt <= 1'b0;
             cal_finish <= 1'b0;
+            data_8_r <= 8'b0;
         end else if(~cnt) begin
             cnt <= ~cnt;
         end else if(cnt) begin

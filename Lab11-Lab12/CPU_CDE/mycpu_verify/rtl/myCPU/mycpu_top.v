@@ -90,7 +90,6 @@ wire [`MS_FWD_BLK_BUS_WD - 1:0] ms_fwd_blk_bus;
 
 wire [64:0] mul_res_bus;
 wire [63:0] div_res_bus;
-wire        div_ms_go;
 wire        div_finish;
 
 // CSR ports

@@ -11,6 +11,7 @@ module regfile(
     input  [ 4:0] waddr,
     input  [31:0] wdata
 );
+
 reg [31:0] rf[31:0];
 
 //WRITE
