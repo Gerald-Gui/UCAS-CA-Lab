@@ -213,7 +213,9 @@ always @(*) begin
         default:
             rreq_nxt_state = rreq_nxt_state;
     endcase
+end
 
+always @(*) begin
     case(rdata_cur_state)
         READ_DATA_RST: begin
             if((arready && arvalid) || |read_business_counter[0] || |read_business_counter[1]) begin
@@ -241,7 +243,9 @@ always @(*) begin
         default:
             rdata_nxt_state = rdata_nxt_state;
     endcase
+end
 
+always @(*) begin
     case(wrd_cur_state)
         WRITE_RST: begin
             if(data_sram_req && data_sram_wr) begin
@@ -270,7 +274,9 @@ always @(*) begin
         default:
             wrd_nxt_state = wrd_nxt_state;
     endcase
+end
 
+always @(*) begin
     case(wresp_cur_state)
         WRITE_RESPONSE_RST: begin
             if(wvalid && wready) begin

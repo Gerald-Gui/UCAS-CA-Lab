@@ -249,8 +249,6 @@ module divider(
     assign X[31:0]      = (dividend_sign ? ~x_r[31:0]+1 : x_r[31:0]);
     assign Y[31:0]      = (divisor_sign  ? ~y_r[31:0]+1 : y_r[31:0]);
 
-    wire [31:0] S;
-
     always @(posedge clk) begin
         if(rst || complete) begin
             x_r <= 32'b0;

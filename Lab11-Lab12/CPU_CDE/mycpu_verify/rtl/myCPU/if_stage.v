@@ -64,7 +64,7 @@ module if_stage(
     // IF stage
     assign fs_ready_go    = fs_inst_valid || (fs_valid && inst_sram_data_ok);
     assign fs_allowin     = !fs_valid || fs_ready_go && ds_allowin;
-    assign fs_to_ds_valid =  fs_valid && fs_ready_go && ~(br_taken && ~br_stall) && ~fs_inst_cancel;
+    assign fs_to_ds_valid =  fs_valid && fs_ready_go && ~fs_inst_cancel;
 
 
     always @(posedge clk) begin
