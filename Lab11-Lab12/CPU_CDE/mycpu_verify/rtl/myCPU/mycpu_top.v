@@ -65,7 +65,6 @@ module mycpu_top(
 reg         reset;
 always @(posedge aclk) reset <= ~aresetn; 
 
-wire         fs_block;
 wire         fs_allowin;
 wire         ds_allowin;
 wire         es_allowin;
@@ -208,7 +207,6 @@ pre_if_stage pre_if_stage(
     .reset          (reset          ),
     //allowin
     .fs_allowin     (fs_allowin     ),    
-    .fs_block (fs_block ),
     //outputs
     .pfs_to_fs_bus  (pfs_to_fs_bus  ),
     .pfs_to_fs_valid(pfs_to_fs_valid),    
@@ -223,7 +221,6 @@ pre_if_stage pre_if_stage(
     .inst_sram_wdata(inst_sram_wdata),
     .inst_sram_addr_ok(inst_sram_addr_ok),
     .inst_sram_data_ok(inst_sram_data_ok),
-    .inst_sram_rdata(inst_sram_rdata),
 
     .wb_exc         (wb_exc         ),
     .wb_ertn        (wb_ertn        ),
@@ -244,7 +241,6 @@ if_stage if_stage(
     .pfs_to_fs_bus  (pfs_to_fs_bus  ),
     //outputs
     .fs_allowin     (fs_allowin     ),
-    .fs_block  (fs_block ),
 
     //outputs
     .fs_to_ds_valid (fs_to_ds_valid ),

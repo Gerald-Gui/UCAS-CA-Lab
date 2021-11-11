@@ -12,7 +12,6 @@ module if_stage(
     input  [`PFS_TO_FS_BUS_WD - 1:0] pfs_to_fs_bus  ,
     //to pfs
     output                           fs_allowin     ,
-    output                           fs_block ,
     //to ds
     output                          fs_to_ds_valid ,
     output [`FS_TO_DS_BUS_WD -1:0]  fs_to_ds_bus   ,
@@ -73,8 +72,6 @@ module if_stage(
             fs_valid <= pfs_to_fs_valid;
         end
     end
-
-    assign fs_block = !fs_valid || fs_inst_valid;
 
     always @(posedge clk ) begin
         if(reset) begin

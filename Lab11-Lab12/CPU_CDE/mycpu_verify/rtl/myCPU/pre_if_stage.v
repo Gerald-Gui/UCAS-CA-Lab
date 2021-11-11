@@ -5,7 +5,6 @@ module pre_if_stage (
     input                            reset            ,
     //from fs
     input                            fs_allowin       ,
-    input                            fs_block   ,
     //to fs
     output [`PFS_TO_FS_BUS_WD - 1:0] pfs_to_fs_bus    ,
     output                           pfs_to_fs_valid  ,
@@ -20,7 +19,6 @@ module pre_if_stage (
     output [31:0]                    inst_sram_wdata,
     input                            inst_sram_addr_ok,
     input                            inst_sram_data_ok,
-    input  [31:0]                    inst_sram_rdata,
     // exc && int
     input                            wb_exc,
     input                            wb_ertn,
@@ -63,8 +61,7 @@ module pre_if_stage (
     always @(posedge clk) begin
         if (reset  ) begin
             pfs_valid <= 1'b0;
-        end
-        else begin
+        end else begin
             pfs_valid <= 1'b1;
         end
     end
