@@ -29,9 +29,6 @@ module pre_if_stage (
     //control signals
     reg  pfs_valid;
     wire pfs_ready_go;
-    
-    //inst_sram
-    reg        inst_sram_addr_ok_r;
 
     //br
     wire br_stall;
@@ -56,7 +53,7 @@ module pre_if_stage (
     reg [31:0] exc_retaddr_r;
 
     //control signals
-    assign pfs_ready_go = ((inst_sram_addr_ok && inst_sram_req) || inst_sram_addr_ok_r) && ~(((wb_ertn_r || wb_exc_r || br_stall_r) && pfs_reflush) || wb_exc || wb_ertn || br_stall);
+    assign pfs_ready_go = (inst_sram_addr_ok && inst_sram_req) && ~(((wb_ertn_r || wb_exc_r || br_stall_r) && pfs_reflush) || wb_exc || wb_ertn || br_stall);
     assign pfs_to_fs_valid = pfs_valid && pfs_ready_go;
     always @(posedge clk) begin
         if (reset  ) begin
@@ -69,18 +66,7 @@ module pre_if_stage (
     //to fs
     assign pfs_to_fs_bus = nextpc;
 
-    //inst_sram
-    always @(posedge clk) begin
-        if (reset) begin
-            inst_sram_addr_ok_r <= 1'b0;
-        end else if (inst_sram_addr_ok && inst_sram_req && !fs_allowin) begin
-            inst_sram_addr_ok_r <= 1'b1;
-        end else if (fs_allowin) begin
-            inst_sram_addr_ok_r <= 1'b0;
-        end
-    end
-
-    assign inst_sram_req = pfs_valid && !inst_sram_addr_ok_r && fs_allowin & ~(pfs_reflush);
+    assign inst_sram_req = ~reset && pfs_valid && fs_allowin & ~(pfs_reflush);
     assign inst_sram_wr = 1'b0;
     assign inst_sram_size = 2'b10;
     assign inst_sram_wstrb = 4'b0;

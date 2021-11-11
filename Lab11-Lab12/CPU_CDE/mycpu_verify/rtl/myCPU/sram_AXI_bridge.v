@@ -211,7 +211,7 @@ always @(*) begin
             rreq_nxt_state = READ_REQ_RST;
         end
         default:
-            rreq_nxt_state = rreq_nxt_state;
+            rreq_nxt_state = READ_REQ_RST;
     endcase
 end
 
@@ -241,7 +241,7 @@ always @(*) begin
             end
         end
         default:
-            rdata_nxt_state = rdata_nxt_state;
+            rdata_nxt_state = READ_DATA_RST;
     endcase
 end
 
@@ -272,7 +272,7 @@ always @(*) begin
             wrd_nxt_state = WRITE_RST;
         end
         default:
-            wrd_nxt_state = wrd_nxt_state;
+            wrd_nxt_state = WRITE_RST;
     endcase
 end
 
@@ -302,7 +302,7 @@ always @(*) begin
             end
         end
         default:
-            wresp_nxt_state = wresp_nxt_state;
+            wresp_nxt_state = WRITE_RESPONSE_RST;
     endcase
 end
 
