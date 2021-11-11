@@ -66,7 +66,7 @@ module pre_if_stage (
     //to fs
     assign pfs_to_fs_bus = nextpc;
 
-    assign inst_sram_req = ~reset && pfs_valid && fs_allowin & ~(pfs_reflush);
+    assign inst_sram_req = pfs_valid && fs_allowin & ~(pfs_reflush);
     assign inst_sram_wr = 1'b0;
     assign inst_sram_size = 2'b10;
     assign inst_sram_wstrb = 4'b0;

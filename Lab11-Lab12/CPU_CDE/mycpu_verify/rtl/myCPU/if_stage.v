@@ -5,8 +5,6 @@ module if_stage(
     input                           reset          ,
     //allwoin
     input                           ds_allowin     ,
-    //brbus
-    input  [`BR_BUS_WD       -1:0]  br_bus         ,
     //from pfs
     input                            pfs_to_fs_valid,
     input  [`PFS_TO_FS_BUS_WD - 1:0] pfs_to_fs_bus  ,
@@ -31,12 +29,6 @@ module if_stage(
 
     reg         fs_valid;
     wire        fs_ready_go;
-
-    wire         br_stall;
-    wire         br_taken;
-    wire         br_taken_cancel;
-    wire [ 31:0] br_target;
-    assign {br_taken, br_taken_cancel, br_stall, br_target} = br_bus;
 
     wire [31                   :0] pfs_pc;
     reg  [`PFS_TO_FS_BUS_WD - 1:0] pfs_to_fs_bus_r;

@@ -234,8 +234,6 @@ if_stage if_stage(
     .reset          (reset          ),
     //allowin
     .ds_allowin     (ds_allowin     ),
-    //brbus
-    .br_bus         (br_bus         ),
     
     .pfs_to_fs_valid(pfs_to_fs_valid),  
     .pfs_to_fs_bus  (pfs_to_fs_bus  ),
@@ -266,7 +264,7 @@ id_stage id_stage(
     //to es
     .ds_to_es_valid (ds_to_es_valid ),
     .ds_to_es_bus   (ds_to_es_bus   ),
-    //to fs
+    //to pre-if
     .br_bus         (br_bus         ),
     //to rf: for write back
     .ws_to_rf_bus   (ws_to_rf_bus   ),
