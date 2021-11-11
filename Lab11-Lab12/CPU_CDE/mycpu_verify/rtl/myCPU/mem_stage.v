@@ -71,11 +71,9 @@ wire [31:0] ms_final_result;
 
 wire        ms_store;
 
-wire        ls_cancel;
-
 reg [63:0] stable_cnter;
 
-assign ms_ready_go    = (|(ms_load_op) || ms_store) ? (data_sram_data_ok | (|ms_exc_flgs) | ls_cancel) : ~(ms_res_from_div & ~ms_div_finish);
+assign ms_ready_go    = (|(ms_load_op) || ms_store) ? (data_sram_data_ok | (|ms_exc_flgs)) : ~(ms_res_from_div & ~ms_div_finish);
 assign ms_allowin     = !ms_valid || ms_ready_go && ws_allowin;
 assign ms_to_ws_valid = ms_valid & ms_ready_go & (~(wb_exc | wb_ertn | wb_exc_r | wb_ertn_r));
 
@@ -87,7 +85,6 @@ assign {ms_rdcn_en     ,
         ms_csr_wdata   ,
         ms_inst_ertn   ,
         es_to_ms_exc_flgs,
-        ls_cancel      ,
         ms_res_from_div,
         div_res_sel    ,
         ms_res_from_mul,  //76:76
