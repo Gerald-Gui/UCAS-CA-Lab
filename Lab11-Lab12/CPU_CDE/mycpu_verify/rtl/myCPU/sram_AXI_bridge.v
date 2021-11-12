@@ -295,7 +295,7 @@ always @(*) begin
         WRITE_RESPONSE_END: begin
             if(bvalid && bready) begin
                 wresp_nxt_state = WRITE_RESPONSE_END;
-            end if((wvalid && wready)/* || (write_business_counter != 2'b0)*/) begin
+            end if((wvalid && wready) || (write_business_counter != 2'b0)) begin
                 wresp_nxt_state = WRITE_RESPONSE_START;
             end else begin
                 wresp_nxt_state = WRITE_RESPONSE_RST;

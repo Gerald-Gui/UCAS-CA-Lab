@@ -83,8 +83,6 @@ wire ls_word;
 wire es_rdcn_en;
 wire es_rdcn_sel;
 
-reg es_addr_ok_r;
-
 assign es_res_from_div = is_div;
 
 assign {es_rdcn_en     ,
@@ -137,7 +135,7 @@ assign es_to_ms_bus = {es_rdcn_en     ,
                        es_pc             //31:0
                       };
 
-assign es_ready_go    = ((|es_load_op) || es_mem_we) ? (((data_sram_req & data_sram_addr_ok) | ls_cancel) || es_addr_ok_r) : (~(is_div & ~div_es_go));
+assign es_ready_go    = ((|es_load_op) || es_mem_we) ? (((data_sram_req & data_sram_addr_ok) | ls_cancel)) : (~(is_div & ~div_es_go));
 assign es_allowin     = !es_valid || es_ready_go && ms_allowin;
 assign es_to_ms_valid =  es_valid & es_ready_go & (~(wb_exc | wb_ertn | wb_exc_r | wb_ertn_r));
 
@@ -152,14 +150,6 @@ always @(posedge clk) begin
         ds_to_es_bus_r <= `DS_TO_ES_BUS_WD'b0;
     end else if (ds_to_es_valid && es_allowin) begin
         ds_to_es_bus_r <= ds_to_es_bus;
-    end
-
-    if(reset) begin
-        es_addr_ok_r <= 1'b0;
-    end else if(data_sram_addr_ok && data_sram_req && !ms_allowin) begin
-        es_addr_ok_r <= 1'b1;
-    end else if(ms_allowin) begin
-        es_addr_ok_r <= 1'b0;
     end
 end
 
@@ -203,7 +193,7 @@ assign store_data = es_store_op[2] ? {4{es_rkd_value[ 7:0]}} :  // b
                     es_store_op[1] ? {2{es_rkd_value[15:0]}} :  // h
                                         es_rkd_value[31:0];     // w
 
-assign data_sram_req   = ((|es_load_op) || es_mem_we) && es_valid && ~(wb_exc | wb_ertn | wb_exc_r | wb_ertn_r) && !es_addr_ok_r && ~ls_cancel;
+assign data_sram_req   = ((|es_load_op) || es_mem_we) && es_valid && ~(wb_exc | wb_ertn | wb_exc_r | wb_ertn_r) && ~ls_cancel;
 assign data_sram_wr    = es_mem_we && es_valid;
 assign data_sram_size  = es_store_op[1] ? 2'h1     : // h
                          es_store_op[0] ? 2'h2 : 2'h0;   
