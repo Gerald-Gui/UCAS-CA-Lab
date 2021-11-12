@@ -295,7 +295,7 @@ always @(*) begin
         WRITE_RESPONSE_END: begin
             if(bvalid && bready) begin
                 wresp_nxt_state = WRITE_RESPONSE_END;
-            end if((wvalid && wready) || (write_business_counter != 2'b0)) begin
+            end if((wvalid && wready)/* || (write_business_counter != 2'b0)*/) begin
                 wresp_nxt_state = WRITE_RESPONSE_START;
             end else begin
                 wresp_nxt_state = WRITE_RESPONSE_RST;
@@ -377,7 +377,7 @@ end
 always @(posedge aclk) begin
     if(~aresetn || arready) begin
         arvalid_r <= 1'b0;
-    end else if(rreq_cur_state == READ_DATA_REQ_START || rreq_cur_state == READ_DATA_REQ_CHECK || rreq_cur_state == READ_INST_REQ_START) begin
+    end else if(rreq_cur_state == READ_DATA_REQ_START || rreq_cur_state == READ_INST_REQ_START) begin
         arvalid_r <= 1'b1;
     end else begin
         arvalid_r <= arvalid_r;
