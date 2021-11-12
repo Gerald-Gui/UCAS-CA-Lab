@@ -27,6 +27,8 @@
 \usepackage{pgfplotstable}
 \usepackage{mhchem}
 \usepackage{graphicx}
+\usepackage[cache=false]{minted}
+\usepackage{multicol}
 
 \newcolumntype{Y}{>{\centering\arraybackslash}X}
 \geometry{a4paper,centering,top=1.27cm,bottom=2.54cm,left=2cm,right=2cm}
@@ -71,6 +73,8 @@
 	tabsize=4,
 	breaklines=true
 }
+
+\setminted{style=manni,fontsize=\small,breaklines=true}
 
 \begin{document}
 	\begin{center}
@@ -166,15 +170,15 @@
 	
 	正常情况下，若当前\texttt{pfs}级有效、\texttt{fs}级可进入（采取简单做法，避免不必要的麻烦，但牺牲了些许性能）时将取指请求拔高，发起请求即可。
 	
-	在早期尝试过程中，发现若\texttt{pfs}不等待\texttt{fs_allow_in}拔高就发请求，而后使用缓冲数组将请求结果暂存并不能解决问题，因为情况很复杂，不能确定之后流水级的接收情况，尤其是在访存指令执行期间需要阻塞一段时间，使得完成“\textsl{在\texttt{fs}级被阻塞时使用缓冲暂存返回的指令}”的目标需要极端情况无限大的缓冲区，这便不确定了。于是最后还是采用简单的做法，保证正确性。
+	在早期尝试过程中，发现若\texttt{pfs}不等待\texttt{fs_allow_in}拔高就发请求，而后使用缓冲数组将请求结果暂存并不能解决问题，因为情况很复杂，不能确定之后流水级的接收情况，尤其是在访存指令执行期间需要阻塞一段时间，使得完成“{\kaishu 在\texttt{fs}级被阻塞时使用缓冲暂存返回的指令}”的目标需要极端情况无限大的缓冲区，这便不确定了。于是最后还是采用简单的做法，保证正确性。
 		
 	在Lab10的SRAM接口处理中，若当前请求未被接收是可以改变请求内容的，而在Lab11$\sim$Lab12中由于AXI协议及笔者设计的状态机，一旦试图发起请求，该请求一定会被接收，因此异常（包含例外和跳转，下同）情况下可以采取不同的方式。Lab10中一旦发生异常，可以检查是否已经接收，若未接收，则可以直接替换掉取指的地址，这样等到接收该申请的时候已经自动变成正确指令取指了；而若该次取指已经被接收，则需要将其无效掉，处理方式按照下面Lab11$\sim$Lab12的方式即可。
 	
 	在Lab11$\sim$Lab12中，因为之后会讲的AXI转接的状态机设计，一旦\texttt{inst_sram_req}拉高，一定会保持在等待接收状态，这时所有信号由状态机决定赋值，并不会根据\texttt{pfs}的取指请求改变而改变，因此情况变得简单：\textsl{错误的取指请求一定会被接受}，但实际上还要分情况：是否发起过取指请求，若错误指令由于\texttt{fs_allowin}的阻塞并未发请求，则不必取消，改变请求后继续按照正常发请求即可；若已经发起过取指请求，则必须要无效掉该请求及其返回指令，简单的方式是在这种情况下取消\texttt{pfs_ready_go}，由于组合逻辑设计来推导，这等价于取消\texttt{pfs_to_fs_valid}，于是接下去\texttt{fs_valid}无效，\texttt{fs_to_ds_valid}无效，这样即使错误指令被返回，\texttt{inst_sram_data_ok}拉高也不会被\texttt{fs}视为有效指令而流向下一级，这部分代码逻辑如下，感兴趣读者可以稍作思考：
 	
-	\begin{lstlisting}[language=verilog]
-	// pre_if stage
-	// when we need to reflush, inst_sram_req became low
+    \begin{minted}{verilog}
+    // pre_if stage
+    // when we need to reflush, inst_sram_req became low
     assign inst_sram_req = ~reset && pfs_valid && fs_allowin & ~(pfs_reflush);
     // pfs not ready to go
     assign pfs_ready_go = (inst_sram_addr_ok && inst_sram_req) && ~(((wb_ertn_r || wb_exc_r || br_stall_r) && pfs_reflush) || wb_exc || wb_ertn || br_stall);
@@ -192,48 +196,51 @@
     end
     // even if inst_sram_data_ok, fs to ds is not valid, wrong instruction cancelled
     assign fs_to_ds_valid =  fs_valid && fs_ready_go && ~fs_inst_cancel;
-	\end{lstlisting}
-	
+    \end{minted}
+		
 	上面代码中\texttt{pfs_reflush}信号正是刻画了这种需要取消的情况，在Lab10和Lab11$\sim$Lab12中，可以按照如下方式赋值：
-	
-	\begin{center}
-	\noindent
-	\begin{tabular}{|p{8cm}|p{8cm}|}
-	\hline
-	Lab10 & Lab11$\sim$Lab12 \\
-	\hline
-	\begin{lstlisting}[language=verilog]
-	if(reset) begin
+	    
+    \begin{multicols}{2}
+    Lab10
+    \begin{minted}{verilog}
+    if(reset) begin
         pfs_reflush <= 1'b0;
-    end else if(inst_sram_addr_ok_r && (wb_exc | wb_ertn | (~br_stall && br_taken)) begin
+    end else if(inst_sram_addr_ok_r
+        && (wb_exc | wb_ertn | (~br_stall && br_taken)) begin
         pfs_reflush <= 1'b1;
     end else if(inst_sram_data_ok) begin
         pfs_reflush <= 1'b0;
     end
-	\end{lstlisting} &
-	\begin{lstlisting}[language=verilog]
-	if(reset) begin
+    \end{minted}
+        
+    \hfill
+    
+    Lab11$\sim$Lab12
+    \begin{minted}{verilog}
+    if(reset) begin
         pfs_reflush <= 1'b0;
-    end else if(inst_sram_req && (wb_exc | wb_ertn | (br_stall && inst_sram_addr_ok))) begin
+    end else if(inst_sram_req
+        && (wb_exc | wb_ertn | (br_stall && inst_sram_addr_ok))) begin
         pfs_reflush <= 1'b1;
     end else if(inst_sram_data_ok) begin
-        pfs_reflush <= 1'b0;
+        pfs_reflush <= 1'b0;    
     end
-	\end{lstlisting}\\
-	\hline
-	\end{tabular}
-	\end{center}
+    \end{minted}
+    
+    \hfill
+    
+    \end{multicols}
 	
 	左边即若已接收后收到必须清理流水线的信号时拉高，右边即若收到清流水信号，但已经发起请求，注意\texttt{branch}操作有些特殊，因为\texttt{stall}时也可能发起请求，但不一定是错误的，我们可以统一处理，若未收到接收信号令其继续发请求，若收到信号去清这一拍，等到\texttt{stall}结束，根据跳转有效/无效重新发请求。恢复的条件是错误请求的指令返回，即\texttt{inst_sram_data_ok}拉高，此时一切将正常。
 	
 	为了配合清流水以及在之后恢复正常取指操作，异常信号都需要用\texttt{reg}拉住，直到正常时取指请求被接收时恢。用处在于利用\texttt{nextpc}取到正确指令提供稳定的选择。因为在整个异常到来到正确请求接收的过程中都需要统一的正确地址，因此需要一直拉住。
 	
-	\begin{lstlisting}[language=verilog]
+    \begin{minted}{verilog}
     assign nextpc   = wb_exc   ? exc_entry   : wb_exc_r   ? exc_entry_r   :
                       wb_ertn  ? exc_retaddr : wb_ertn_r  ? exc_retaddr_r :
                       br_taken_r ? br_target_r : br_taken && !br_stall) ? br_target   :
                                  seq_pc;
-	\end{lstlisting}
+    \end{minted}
 	
 	\subsection{模块设计更新：\texttt{if}流水级}
 	
@@ -315,11 +322,11 @@
 	
 	对于异常，这一级主要考虑两个来源，因为精确异常的需要，要保证出现异常的指令及其之后的指令不能执行，而若为\texttt{store}指令执行将带来不可逆的损伤，毕竟不是原子操作atomic_swap，不会知道存之前内存单元的值，因此在这一级需要紧急对\texttt{exc_flg}做一个整理，对此前流水级和这一级流水的异常信息汇总，同时将\texttt{ms, ws}前递过来的\texttt{ms_to_es_ls_cancel}信号也纳入，即将这一时间片若存在异常，不等\texttt{ws}进行汇总发信息就直接取消访存指令，因为是组合逻辑，可以直接在req中加入，这样能在req未拉高的情况下直接取消，即使在AXI协议下也不会有问题。同时用cancel信号替代掉原本的\texttt{data_sram_addr_ok}信号，强制改指令空泡状态下前往下一级。
 	
-	\begin{lstlisting}[language=verilog]
-	assign es_ready_go = ((|es_load_op) || es_mem_we) ? (((data_sram_req & data_sram_addr_ok) | ls_cancel)) : (~(is_div & ~div_es_go));
+    \begin{minted}{verilog}
+    assign es_ready_go = ((|es_load_op) || es_mem_we) ? (((data_sram_req & data_sram_addr_ok) | ls_cancel)) : (~(is_div & ~div_es_go));
 
-	assign data_sram_req   = ((|es_load_op) || es_mem_we) && es_valid && ~(wb_exc | wb_ertn | wb_exc_r | wb_ertn_r) && ~ls_cancel && ms_allowin;
-	\end{lstlisting}
+    assign data_sram_req   = ((|es_load_op) || es_mem_we) && es_valid && ~(wb_exc | wb_ertn | wb_exc_r | wb_ertn_r) && ~ls_cancel && ms_allowin;
+    \end{minted}
 
 	\subsection{模块设计更新：\texttt{es}流水级}
 	
@@ -523,8 +530,8 @@
 	
 	改进方法是都只使用一个64位和32位数组，每次都去利用时序逻辑从\texttt{wire}向\texttt{reg}赋值，而后再利用\texttt{reg}进行固定的组合逻辑运算，自动更新\texttt{wire}。
 	
-	\begin{lstlisting}[language=verilog]
-	// 根据wire更新的reg
+    \begin{minted}{verilog}
+    // 根据wire更新的reg
     if(reset || complete) begin
         A_r <= 64'b0;
     // 进行直接移位以优化
@@ -545,7 +552,7 @@
     assign new_A[30: 0] = 31'b0;
     // 余数
     assign R = A_r[63:32];
-	\end{lstlisting}
+    \end{minted}
 	
 	事实上按照正常思路，滑动窗口在被除数上每拍右移，而若反过来思考，固定滑动窗口为高33位，那么只需要被除数每次左移，而且更新的被除数永远只在高33位赋值，写法十分方便。
 	
@@ -589,9 +596,9 @@
 	
 	只需要在\texttt{fs_allow_in}的条件下发送取指请求即可
 	
-	\begin{lstlisting}[language=verilog]
+    \begin{minted}{verilog}
     assign inst_sram_req = pfs_valid && fs_allowin & ~(pfs_reflush);
-	\end{lstlisting}
+    \end{minted}
 	
 	\paragraph{错误\textbf{1.2:}数据请求}\hfill
 	
