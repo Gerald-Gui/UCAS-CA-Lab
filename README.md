@@ -15,10 +15,10 @@ This repo stores codes and reports from UCAS Computer Architecture Lab 2021 Autu
  - [x] Lab08 ~ Lab09：异常与中断设计专题
    - [x] Lab08：添加系统调用异常支持
    - [x] Lab09：添加其他异常支持
- - [ ] Lab10 ~ Lab12：AXI总线接口设计专题
+ - [x] Lab10 ~ Lab12：AXI总线接口设计专题
    - [x] Lab10：添加类 SRAM 总线支持
-   - [ ] Lab11：添加 AXI 总线支持
-   - [ ] Lab12：完成 AXI 随机延迟验证
+   - [x] Lab11：添加 AXI 总线支持
+   - [x] Lab12：完成 AXI 随机延迟验证
  - [ ] Lab13 ~ Lab15：TLB MMU 设计专题
    - [ ] Lab13：TLB 模块设计
    - [ ] Lab14：添加 TLB 相关指令与 CSR 寄存器
