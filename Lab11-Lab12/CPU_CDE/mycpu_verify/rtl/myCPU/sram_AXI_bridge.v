@@ -197,7 +197,7 @@ always @(*) begin
             if(arready && arvalid) begin
                 rreq_nxt_state = READ_REQ_END;
             end else begin
-                rreq_nxt_state = rreq_nxt_state;
+                rreq_nxt_state = rreq_cur_state;
             end
         end
         READ_DATA_REQ_CHECK: begin
@@ -228,7 +228,7 @@ always @(*) begin
             if(rvalid && rready) begin
                 rdata_nxt_state = READ_DATA_END;
             end else begin
-                rdata_nxt_state = rdata_nxt_state;
+                rdata_nxt_state = rdata_cur_state;
             end
         end
         READ_DATA_END: begin
@@ -265,7 +265,7 @@ always @(*) begin
             if(wvalid && wready) begin
                 wrd_nxt_state = WRITE_RD_END;
             end else begin
-                wrd_nxt_state = wrd_nxt_state;
+                wrd_nxt_state = wrd_cur_state;
             end
         end
         WRITE_RD_END: begin
@@ -289,7 +289,7 @@ always @(*) begin
             if(bvalid && bready) begin
                 wresp_nxt_state = WRITE_RESPONSE_END;
             end else begin
-                wresp_nxt_state = wresp_nxt_state;
+                wresp_nxt_state = wresp_cur_state;
             end
         end
         WRITE_RESPONSE_END: begin
