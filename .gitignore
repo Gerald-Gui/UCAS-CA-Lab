@@ -30,4 +30,4 @@ Lab11-Lab12/CPU_CDE_AXI/mycpu_axi_verify/rtl/axi_wrap/
 Lab11-Lab12/CPU_CDE_AXI/mycpu_axi_verify/rtl/ram_wrap/
 Lab11-Lab12/CPU_CDE_AXI/mycpu_axi_verify/rtl/CONFREG/
 Lab11-Lab12/CPU_CDE_AXI/mycpu_axi_verify/rtl/xilinx_ip/
-Lab11-Lab12/CPU_CDE_AXI/mycpu_axi_verify/rtl/soc_lite_top.v
+Lab11-Lab12/CPU_CDE_AXI/mycpu_axi_verify/rtl/soc_axi_lite_top.v
