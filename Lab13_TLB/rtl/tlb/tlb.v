@@ -95,6 +95,9 @@ module tlb #(
     wire [TLBNUM-1:0] match0;
     wire [TLBNUM-1:0] match1;
 
+    wire s0_ppg_sel;
+    wire s1_ppg_sel;
+
     // 0 -> G == 0
     // 1 -> G == 1
     // 2 -> s1_asid == ASID
@@ -160,21 +163,25 @@ module tlb #(
     // search port
     assign s0_found = |match0;
     assign s0_index = $clog2(match0);
-    assign s0_ps    = tlb_ps  [s0_index] ? 6'd22 : 6'd12;
-    assign s0_ppn   = s0_vppn[0] ? tlb_ppn1[s0_index] : tlb_ppn0[s0_index];
-    assign s0_plv   = s0_vppn[0] ? tlb_plv1[s0_index] : tlb_plv0[s0_index];
-    assign s0_mat   = s0_vppn[0] ? tlb_mat1[s0_index] : tlb_mat0[s0_index];
-    assign s0_d     = s0_vppn[0] ? tlb_d1  [s0_index] : tlb_d0  [s0_index];
-    assign s0_v     = s0_vppn[0] ? tlb_v1  [s0_index] : tlb_v0  [s0_index];
+    assign s0_ppg_sel = tlb_ps[s0_index] ? s0_vppn[10] : s0_vppn[0];
+    assign s0_ps      = tlb_ps[s0_index] ? 6'd22 : 6'd12;
+
+    assign s0_ppn   = s0_ppg_sel ? tlb_ppn1[s0_index] : tlb_ppn0[s0_index];
+    assign s0_plv   = s0_ppg_sel ? tlb_plv1[s0_index] : tlb_plv0[s0_index];
+    assign s0_mat   = s0_ppg_sel ? tlb_mat1[s0_index] : tlb_mat0[s0_index];
+    assign s0_d     = s0_ppg_sel ? tlb_d1  [s0_index] : tlb_d0  [s0_index];
+    assign s0_v     = s0_ppg_sel ? tlb_v1  [s0_index] : tlb_v0  [s0_index];
 
     assign s1_found = |match1;
     assign s1_index = $clog2(match1);
-    assign s1_ps    = tlb_ps  [s1_index] ? 6'd22 : 6'd12;
-    assign s1_ppn   = s1_vppn[0] ? tlb_ppn1[s1_index] : tlb_ppn0[s1_index];
-    assign s1_plv   = s1_vppn[0] ? tlb_plv1[s1_index] : tlb_plv0[s1_index];
-    assign s1_mat   = s1_vppn[0] ? tlb_mat1[s1_index] : tlb_mat0[s1_index];
-    assign s1_d     = s1_vppn[0] ? tlb_d1  [s1_index] : tlb_d0  [s1_index];
-    assign s1_v     = s1_vppn[0] ? tlb_v1  [s1_index] : tlb_v0  [s1_index];
+    assign s1_ppg_sel = tlb_ps[s1_index] ? s1_vppn[10] : s1_vppn[0];
+    assign s1_ps      = tlb_ps[s1_index] ? 6'd22 : 6'd12;
+
+    assign s1_ppn   = s1_ppg_sel ? tlb_ppn1[s1_index] : tlb_ppn0[s1_index];
+    assign s1_plv   = s1_ppg_sel ? tlb_plv1[s1_index] : tlb_plv0[s1_index];
+    assign s1_mat   = s1_ppg_sel ? tlb_mat1[s1_index] : tlb_mat0[s1_index];
+    assign s1_d     = s1_ppg_sel ? tlb_d1  [s1_index] : tlb_d0  [s1_index];
+    assign s1_v     = s1_ppg_sel ? tlb_v1  [s1_index] : tlb_v0  [s1_index];
 
     generate for (i = 0; i < TLBNUM; i = i + 1) begin
        assign inv_match[0][i] = ~tlb_g[i];
