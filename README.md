@@ -20,6 +20,6 @@ This repo stores codes and reports from UCAS Computer Architecture Lab 2021 Autu
    - [x] Lab11：添加 AXI 总线支持
    - [x] Lab12：完成 AXI 随机延迟验证
  - [ ] Lab13 ~ Lab15：TLB MMU 设计专题
-   - [ ] Lab13：TLB 模块设计
+   - [x] Lab13：TLB 模块设计
    - [ ] Lab14：添加 TLB 相关指令与 CSR 寄存器
    - [ ] Lab15：添加 TLB 相关例外支持

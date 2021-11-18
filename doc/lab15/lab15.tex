@@ -1,0 +1,244 @@
+\documentclass[UTF-8,twoside,c5size]{ctexart}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{geometry}
+\usepackage{listings}
+\usepackage{setspace}
+\usepackage{xeCJK}
+\usepackage{ulem}
+\usepackage{pstricks}
+\usepackage{pstricks-add}
+\usepackage{bm}
+\usepackage{mathtools}
+\usepackage{breqn}
+\usepackage{mathrsfs}
+\usepackage{esint}
+\usepackage{textcomp}
+\usepackage{upgreek}
+\usepackage{pifont}
+\usepackage{tikz}
+\usepackage{circuitikz}
+\usepackage{caption}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{pgfplots}
+\usepackage{multirow}
+\usepackage{pgfplotstable}
+\usepackage{mhchem}
+\usepackage{graphicx}
+\usepackage[cache=false]{minted}
+\usepackage{multicol}
+
+\newcolumntype{Y}{>{\centering\arraybackslash}X}
+\geometry{a4paper,centering,top=1.27cm,bottom=2.54cm,left=2cm,right=2cm}
+\graphicspath{{figures/}}
+\pagestyle{plain}
+\captionsetup{font=small}
+
+%\CTEXsetup[name={,.}]{section}
+\CTEXsetup[format={\raggedright\heiti\noindent\zihao{-3}},numberformat={\bfseries}]{section}
+\CTEXsetup[format={\raggedright\heiti\zihao{4}},numberformat={\bfseries}]{subsection}
+\CTEXsetup[format={\raggedright\heiti\quad\zihao{-4}},numberformat={\bfseries}]{subsubsection}
+\CTEXsetup[format={\raggedright\heiti\qquad},numberformat={\bfseries}]{paragraph}
+\CTEXsetup[beforeskip=1.0ex plus 0.2ex minus .2ex, afterskip=1.0ex plus 0.2ex minus .2ex]{paragraph}
+
+\CTEXsetup[format={\raggedright\heiti\qquad},numberformat={\bfseries},name={\bfseries(,)}]{subparagraph}
+\CTEXsetup[beforeskip=1.0ex plus 0.2ex minus .2ex, afterskip=1.0ex plus 0.2ex minus .2ex]{subparagraph}
+\renewcommand\thefootnote{\ding{\numexpr171+\value{footnote}}}
+
+\setstretch{1.5}
+
+\setCJKfamilyfont{boldsong}[AutoFakeBold = {2.17}]{SimSun}
+\newcommand*{\boldsong}{\CJKfamily{boldsong}}
+%\DeclareMathOperator\dif{d\!}
+\newcommand*{\me}{\mathop{}\!\mathrm{e}}
+\newcommand*{\mpar}{\mathop{}\!\partial}
+\newcommand*{\dif}{\mathop{}\!\mathrm{d}}
+\newcommand*{\tab}{\indent}
+\newcommand*{\mcelsius}{\mathop{}\!{^\circ}\mathrm{C}}
+\renewcommand*{\Im}{\mathrm{Im}\,}
+
+\setcounter{secnumdepth}{5}
+
+\renewcommand\arraystretch{1.5}
+\renewcommand\thesubparagraph{\arabic{subparagraph}}
+
+\lstset{
+	backgroundcolor=\color[RGB]{245,245,245},
+	keywordstyle=\color{blue}\bfseries,
+	basicstyle=\small\ttfamily,
+	commentstyle=\itshape\color{olive},
+	numberstyle=\ttfamily,
+	tabsize=4,
+	breaklines=true
+}
+
+\setminted{style=manni,fontsize=\small,breaklines=true}
+
+\begin{document}
+	\begin{center}
+		\heiti\zihao{-2}
+		实验\textbf{13 $ \bm\sim $ 15}报告
+	\end{center}
+
+	\begin{table*}[!h]
+		\raggedleft
+		\zihao{-4}
+		\begin{tabular}{ccc}
+			{\heiti 学号} & {2019K8009929019} & {2019K8009929026} \\
+			{\heiti 姓名} & 桂庭辉 & 高梓源 \\
+			{\heiti 箱子号} & \multicolumn{2}{c}{44}
+		\end{tabular}
+	\end{table*}
+	
+	\section{实验任务}
+    
+	
+	\section{实验设计}	
+	\subsection{重要模块设计：\texttt{TLB}}
+    \subsubsection{功能描述}
+    TLB的功能在于在硬件上记录部分页表项以加快页表查询速度，具体需要记录指定项数的页表项PTE，根据LoongArch 32位精简版TLB需支持的指令，设计同步写、异步读的读写端口以及用于取指、访存两处地址转换的查找功能。
+    
+    TLB模块的接口与讲义一致，此处不再赘述。
+    
+    \subsubsection{细节实现}
+    
+    TLB的读写逻辑与通用寄存器堆regfile的逻辑类似。读操作根据\texttt{r\_index}异步读取TLB记录页表项各域即可，写操作在\texttt{we}拉高时根据\texttt{w\_index}将页表项各域同步更新记录。
+    
+    查找过程需要将输入的虚页号与TLB记录的虚页号相匹配，生成各表项匹配成功与否的\texttt{match0/1}信号逻辑与讲义一致，具体而言对每个TLB表项需检查存在位\texttt{e}、可见性\texttt{g}或\texttt{asid}匹配、虚页号相等与否，其中虚页号对于页大小为4\,MB时比对高9位即可，而为4\,KB时需匹配所有19位。
+    
+    \begin{minted}{verilog}
+    generate for (i = 0; i < TLBNUM; i = i + 1) begin
+        assign match0[i] = tlb_e[i] && (tlb_g[i] || tlb_asid[i] == s0_asid) &&
+                            // cmp high bits whatever ps is
+                            s0_vppn[18:10] == tlb_vppn[i][18:10]            &&  
+                            // if ps == 4 KB, cmp low bits
+                           (s0_vppn[ 9: 0] == tlb_vppn[i][ 9: 0] || tlb_ps[i]); 
+        assign match1[i] = tlb_e[i] && (tlb_g[i] || tlb_asid[i] == s1_asid) &&
+                            s1_vppn[18:10] == tlb_vppn[i][18:10]            &&
+                           (s1_vppn[ 9: 0] == tlb_vppn[i][ 9: 0] || tlb_ps[i]);
+    end
+    endgenerate
+    \end{minted}
+    
+    是否查找成功信号\texttt{found}生成逻辑简单，只需将\texttt{match}按位或（等效于$ \neq 0 $）即可。由\texttt{match}信号获取匹配的TLB表项索引\texttt{index}可以使用多路选择器实现，但在个人设计中未能编写出兼顾代码可读性与参数化（即选择器路数由参数\texttt{TLBNUM}决定）的多路选择器，故而以另一种形式实现该过程，即下文将要讨论的模块\texttt{mylog2}。
+    
+    获取到查找索引\texttt{s_index}后，由于一个TLB表项记录两个物理页，接下来需要判断奇偶页的选择。标记奇偶页的虚地址位为\texttt{va[PS]}，对于4\,KB页，其为虚地址的第12位，对于4\,MB页，其为虚地址的第22页，即查找端口输入的虚页号第9位。根据页大小获取奇偶标志位后即可选出查找结果的物理页。
+    
+    \begin{minted}{verilog}
+    assign s0_ppg_sel = tlb_ps[s0_index] ? s0_vppn[9] : s0_va_bit12;
+    assign s0_ps      = tlb_ps[s0_index] ? 6'd22 : 6'd12;
+
+    assign s0_ppn   = s0_ppg_sel ? tlb_ppn1[s0_index] : tlb_ppn0[s0_index];
+    assign s0_plv   = s0_ppg_sel ? tlb_plv1[s0_index] : tlb_plv0[s0_index];
+    assign s0_mat   = s0_ppg_sel ? tlb_mat1[s0_index] : tlb_mat0[s0_index];
+    assign s0_d     = s0_ppg_sel ? tlb_d1  [s0_index] : tlb_d0  [s0_index];
+    assign s0_v     = s0_ppg_sel ? tlb_v1  [s0_index] : tlb_v0  [s0_index];
+    \end{minted}
+    
+    接下来考虑INVTLB指令功能的实现，如讲义所言，将其查找逻辑拆分为四个子匹配逻辑：
+    \begin{minted}{verilog}
+    generate for (i = 0; i < TLBNUM; i = i + 1) begin
+       assign inv_match[0][i] = ~tlb_g[i];
+       assign inv_match[1][i] =  tlb_g[i];
+       assign inv_match[2][i] = s1_asid == tlb_asid[i];
+       assign inv_match[3][i] = s1_vppn[18:10] == tlb_vppn[i][18:10]            &&
+                               (s1_vppn[ 9: 0] == tlb_vppn[i][ 9: 0] || tlb_ps[i]);
+    end        
+    endgenerate
+    \end{minted}
+    
+    由子匹配结果容易获得一套各\texttt{invtlb\_op}对应的掩码，INVTLB指令的无效实现只需要将\texttt{op}对应的掩码中为1处的\texttt{tlb\_e}域抹零即可。
+    
+    \begin{minted}{verilog}
+    assign inv_op_mask[0] = 16'b0;
+    assign inv_op_mask[1] = 16'b0;
+    assign inv_op_mask[2] = inv_match[1];
+    assign inv_op_mask[3] = inv_match[0];
+    assign inv_op_mask[4] = inv_match[0] & inv_match[2];
+    assign inv_op_mask[5] = inv_match[0] & inv_match[2] & inv_match[3];
+    assign inv_op_mask[6] = (inv_match[0] | inv_match[2]) & inv_match[3];
+    
+    always @ (posedge clk) begin
+        if (we) begin
+            // write logic
+        end else begin
+            tlb_e <= ~inv_op_mask[invtlb_op] & tlb_e;
+        end
+    end
+    \end{minted}
+    
+    \subsection{重要模块设计：\texttt{mylog2}}
+    \subsubsection{功能描述与设计实现}
+    
+    设计本意是检测输入中的1，返回其位置。思路可简单概括为折半查找。
+    
+    折半查找的每一步检索结果与输出结果自高到低每一位一一对应。以32位输入为例，输出应有5位，折半查找第一次判断1落在高16位还是低16位，若高则将输出最高位置1，依此类推，每次折半判断的高(1)低(0)与作为结果的索引一一对应。判断1落在哪一半的实现通过判断高半部分是否有1（是否不等于0），由此在输入有多个1时进行了高位优先，最终获取的结果为最高1的索引，在数值上等同于运算$ \log_2 $。
+    
+    在具体实现上，对此前提到的高半部分的选取通过语法\texttt{+:}实现，由此需要获取到每次判断的基址。以32位为例，首次基址应为16，判断输入的\texttt{[16+:16]}部分是否有1。类似的对于任意\footnote{实际应用上最好指定位宽\texttt{WIDTH}为2的次幂，非2次幂时\texttt{+:}的越界问题我并未检验与解决。}位宽\texttt{WIDTH}的输入，其索引位宽\texttt{IDX\_WIDTH}为\texttt{WIDTH}对2取对数，首基址只需将$ \mathtt{IDX\_WIDTH}-1 $位置1，其他位置0即可（即对\texttt{WIDTH}数值取半）。
+    
+    \begin{minted}{verilog}
+    localparam IDX_WIDTH = $clog2(WIDTH);
+    
+    assign base[IDX_WIDTH-1] = {1'b1, {IDX_WIDTH-1{1'b0}}};
+    \end{minted}
+    
+    对于折半查找每层需要做的工作，(1)根据基址判断高半部分是否有1，生成结果\texttt{res}的相应位；(2)计算下一层应使用的基址。前者的实现较为简单。后者归纳下来即高半部分有1则当前层所用基址加上(1)中检测宽度的一半，否则减去。此处的加减法具有一定的特殊性，记当前层对应位索引为\texttt{i}，次层对应位为\texttt{i-1}。加数或减数定为在\texttt{i-1}处为1，其他位为0。而被加/减数的\texttt{i}位以后均为0，所以计算结果中\texttt{i-1}处必定为1，根据这个结论可以发现不会出现连续借位的情况，即\texttt{i}位是上一层的\texttt{i-1}位，必定为1可以被借位，若发生加法则该位保持1，若发生减法则被借位置0。由此可以注意到\texttt{base[i]}与\texttt{res[i]}的值是一致的。
+    
+    \begin{minted}{verilog}
+    generate 
+        for (i = IDX_WIDTH-1; i > 0; i = i - 1) begin
+            assign res[i] = src[base[i]+:({{IDX_WIDTH-1{1'b0}}, 1'b1} << i)] != 0;
+            
+            for (j = 0; j < IDX_WIDTH; j = j + 1) begin
+                if (i == j) begin
+                    assign base[i - 1][j] = res[i];
+                end else if (i - 1 == j) begin
+                    assign base[i - 1][j] = 1'b1;
+                end else begin
+                    assign base[i - 1][j] = base[i][j]; 
+                end                
+            end
+        end
+    endgenerate
+    \end{minted}
+    
+    结果的末位与根据最后一次计算出的基址\texttt{base[0]}索引输入的结果一致。
+    
+    \begin{minted}{verilog}
+    assign res[0] = src[base[0]];
+    \end{minted}
+    
+    \subsubsection{接口定义}
+    
+    \begin{table}[!h]
+        \centering
+        \caption{\texttt{mylog2}模块接口定义}
+        \begin{tabularx}{0.8\textwidth}{|Y|Y|Y|Y|}
+            \hline
+            \textbf{名称} & \textbf{方向} & \textbf{位宽} & \textbf{描述} \\
+            \hline
+            \texttt{src} & \textsc{In} & WIDTH & \multirow{2}*{$ \mathtt{res}=\log_2\mathtt{src} $} \\
+            \cline{1-3}
+            \texttt{res} & \textsc{Out} & $ \log_2\mathrm{WIDTH} $ & \\
+            \hline            
+        \end{tabularx}
+    \end{table}
+
+	\section{实验过程}
+	
+	\subsection{实验流水账}
+	
+	2021.10.28 10:00 $\sim$ 2021.10.28 10:30 ：根据讲义内容与gitee仓库tlb\_verify\footnote{https://gitee.com/ucas-ca-edu-lab/tlb_verify}完成TLB初步设计，由于验证环境问题未完全验证设计。
+    
+    2021.11.18 16:00 $\sim$ 2021.11.18 16:45 ：编写设计\texttt{mylog2}模块，根据正式实验环境通过验证。
+    
+	\subsection{错误记录}	
+	
+	
+	\section{实验总结}
+	
+	
+	
+\end{document}
