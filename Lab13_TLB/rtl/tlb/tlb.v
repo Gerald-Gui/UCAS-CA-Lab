@@ -4,7 +4,8 @@ module tlb #(
         input   clk,
 
         // search port 0 (for fetch)
-        input  [              19:0] s0_vppn,
+        input  [              18:0] s0_vppn,
+        input                       s0_va_bit12,
         input  [               9:0] s0_asid,
         output                      s0_found,
         output [$clog2(TLBNUM)-1:0] s0_index,
@@ -16,7 +17,8 @@ module tlb #(
         output                      s0_v,
 
         // search port 1 (for load/store)
-        input  [              19:0] s1_vppn,
+        input  [              18:0] s1_vppn,
+        input                       s1_va_bit12,
         input  [               9:0] s1_asid,
         output                      s1_found,
         output [$clog2(TLBNUM)-1:0] s1_index,
@@ -152,33 +154,34 @@ module tlb #(
     genvar i;
     generate for (i = 0; i < TLBNUM; i = i + 1) begin
         assign match0[i] = tlb_e[i] && (tlb_g[i] || tlb_asid[i] == s0_asid) &&
-                            s0_vppn[19:11] == tlb_vppn[i][18:10]            &&  // cmp high bits whatever ps is
-                           (s0_vppn[10: 1] == tlb_vppn[i][ 9: 0] || tlb_ps[i]); // if ps == 4 KB, cmp low bits
+                            s0_vppn[18:10] == tlb_vppn[i][18:10]            &&  // cmp high bits whatever ps is
+                           (s0_vppn[ 9: 0] == tlb_vppn[i][ 9: 0] || tlb_ps[i]); // if ps == 4 KB, cmp low bits
         assign match1[i] = tlb_e[i] && (tlb_g[i] || tlb_asid[i] == s1_asid) &&
-                            s1_vppn[19:11] == tlb_vppn[i][18:10]            &&
-                           (s1_vppn[10: 1] == tlb_vppn[i][ 9: 0] || tlb_ps[i]);
+                            s1_vppn[18:10] == tlb_vppn[i][18:10]            &&
+                           (s1_vppn[ 9: 0] == tlb_vppn[i][ 9: 0] || tlb_ps[i]);
     end
     endgenerate
 
     // search port
     assign s0_found = |match0;
-    assign s0_index = {$clog2(TLBNUM){match0[ 0]}} &  0 |
-                      {$clog2(TLBNUM){match0[ 1]}} &  1 |
-                      {$clog2(TLBNUM){match0[ 2]}} &  2 |
-                      {$clog2(TLBNUM){match0[ 3]}} &  3 |
-                      {$clog2(TLBNUM){match0[ 4]}} &  4 |
-                      {$clog2(TLBNUM){match0[ 5]}} &  5 |
-                      {$clog2(TLBNUM){match0[ 6]}} &  6 |
-                      {$clog2(TLBNUM){match0[ 7]}} &  7 |
-                      {$clog2(TLBNUM){match0[ 8]}} &  8 |
-                      {$clog2(TLBNUM){match0[ 9]}} &  9 |
-                      {$clog2(TLBNUM){match0[10]}} & 10 |
-                      {$clog2(TLBNUM){match0[11]}} & 11 |
-                      {$clog2(TLBNUM){match0[12]}} & 12 |
-                      {$clog2(TLBNUM){match0[13]}} & 13 |
-                      {$clog2(TLBNUM){match0[14]}} & 14 |
-                      {$clog2(TLBNUM){match0[15]}} & 15;
-    assign s0_ppg_sel = tlb_ps[s0_index] ? s0_vppn[10] : s0_vppn[0];
+    mylog2 #(.WIDTH(TLBNUM)) s0_log2(.src(match0), .res(s0_index));
+    // assign s0_index = {$clog2(TLBNUM){match0[ 0]}} &  0 |
+    //                   {$clog2(TLBNUM){match0[ 1]}} &  1 |
+    //                   {$clog2(TLBNUM){match0[ 2]}} &  2 |
+    //                   {$clog2(TLBNUM){match0[ 3]}} &  3 |
+    //                   {$clog2(TLBNUM){match0[ 4]}} &  4 |
+    //                   {$clog2(TLBNUM){match0[ 5]}} &  5 |
+    //                   {$clog2(TLBNUM){match0[ 6]}} &  6 |
+    //                   {$clog2(TLBNUM){match0[ 7]}} &  7 |
+    //                   {$clog2(TLBNUM){match0[ 8]}} &  8 |
+    //                   {$clog2(TLBNUM){match0[ 9]}} &  9 |
+    //                   {$clog2(TLBNUM){match0[10]}} & 10 |
+    //                   {$clog2(TLBNUM){match0[11]}} & 11 |
+    //                   {$clog2(TLBNUM){match0[12]}} & 12 |
+    //                   {$clog2(TLBNUM){match0[13]}} & 13 |
+    //                   {$clog2(TLBNUM){match0[14]}} & 14 |
+    //                   {$clog2(TLBNUM){match0[15]}} & 15;
+    assign s0_ppg_sel = tlb_ps[s0_index] ? s0_vppn[9] : s0_va_bit12;
     assign s0_ps      = tlb_ps[s0_index] ? 6'd22 : 6'd12;
 
     assign s0_ppn   = s0_ppg_sel ? tlb_ppn1[s0_index] : tlb_ppn0[s0_index];
@@ -188,23 +191,24 @@ module tlb #(
     assign s0_v     = s0_ppg_sel ? tlb_v1  [s0_index] : tlb_v0  [s0_index];
 
     assign s1_found = |match1;
-    assign s1_index = {$clog2(TLBNUM){match1[ 0]}} &  0 |
-                      {$clog2(TLBNUM){match1[ 1]}} &  1 |
-                      {$clog2(TLBNUM){match1[ 2]}} &  2 |
-                      {$clog2(TLBNUM){match1[ 3]}} &  3 |
-                      {$clog2(TLBNUM){match1[ 4]}} &  4 |
-                      {$clog2(TLBNUM){match1[ 5]}} &  5 |
-                      {$clog2(TLBNUM){match1[ 6]}} &  6 |
-                      {$clog2(TLBNUM){match1[ 7]}} &  7 |
-                      {$clog2(TLBNUM){match1[ 8]}} &  8 |
-                      {$clog2(TLBNUM){match1[ 9]}} &  9 |
-                      {$clog2(TLBNUM){match1[10]}} & 10 |
-                      {$clog2(TLBNUM){match1[11]}} & 11 |
-                      {$clog2(TLBNUM){match1[12]}} & 12 |
-                      {$clog2(TLBNUM){match1[13]}} & 13 |
-                      {$clog2(TLBNUM){match1[14]}} & 14 |
-                      {$clog2(TLBNUM){match1[15]}} & 15;
-    assign s1_ppg_sel = tlb_ps[s1_index] ? s1_vppn[10] : s1_vppn[0];
+    mylog2 #(.WIDTH(TLBNUM)) s1_log2(.src(match1), .res(s1_index));
+    // assign s1_index = {$clog2(TLBNUM){match1[ 0]}} &  0 |
+    //                   {$clog2(TLBNUM){match1[ 1]}} &  1 |
+    //                   {$clog2(TLBNUM){match1[ 2]}} &  2 |
+    //                   {$clog2(TLBNUM){match1[ 3]}} &  3 |
+    //                   {$clog2(TLBNUM){match1[ 4]}} &  4 |
+    //                   {$clog2(TLBNUM){match1[ 5]}} &  5 |
+    //                   {$clog2(TLBNUM){match1[ 6]}} &  6 |
+    //                   {$clog2(TLBNUM){match1[ 7]}} &  7 |
+    //                   {$clog2(TLBNUM){match1[ 8]}} &  8 |
+    //                   {$clog2(TLBNUM){match1[ 9]}} &  9 |
+    //                   {$clog2(TLBNUM){match1[10]}} & 10 |
+    //                   {$clog2(TLBNUM){match1[11]}} & 11 |
+    //                   {$clog2(TLBNUM){match1[12]}} & 12 |
+    //                   {$clog2(TLBNUM){match1[13]}} & 13 |
+    //                   {$clog2(TLBNUM){match1[14]}} & 14 |
+    //                   {$clog2(TLBNUM){match1[15]}} & 15;
+    assign s1_ppg_sel = tlb_ps[s1_index] ? s1_vppn[9] : s1_va_bit12;
     assign s1_ps      = tlb_ps[s1_index] ? 6'd22 : 6'd12;
 
     assign s1_ppn   = s1_ppg_sel ? tlb_ppn1[s1_index] : tlb_ppn0[s1_index];
@@ -217,8 +221,8 @@ module tlb #(
        assign inv_match[0][i] = ~tlb_g[i];
        assign inv_match[1][i] =  tlb_g[i];
        assign inv_match[2][i] = s1_asid == tlb_asid[i];
-       assign inv_match[3][i] = s1_vppn[19:11] == tlb_vppn[i][18:10]            &&
-                               (s1_vppn[10: 1] == tlb_vppn[i][ 9: 0] || tlb_ps[i]);
+       assign inv_match[3][i] = s1_vppn[18:10] == tlb_vppn[i][18:10]            &&
+                               (s1_vppn[ 9: 0] == tlb_vppn[i][ 9: 0] || tlb_ps[i]);
     end        
     endgenerate
 
