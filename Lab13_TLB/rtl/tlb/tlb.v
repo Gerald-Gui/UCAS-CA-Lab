@@ -162,7 +162,22 @@ module tlb #(
 
     // search port
     assign s0_found = |match0;
-    assign s0_index = $clog2(match0);
+    assign s0_index = {$clog2(TLBNUM){match0[ 0]}} &  0 |
+                      {$clog2(TLBNUM){match0[ 1]}} &  1 |
+                      {$clog2(TLBNUM){match0[ 2]}} &  2 |
+                      {$clog2(TLBNUM){match0[ 3]}} &  3 |
+                      {$clog2(TLBNUM){match0[ 4]}} &  4 |
+                      {$clog2(TLBNUM){match0[ 5]}} &  5 |
+                      {$clog2(TLBNUM){match0[ 6]}} &  6 |
+                      {$clog2(TLBNUM){match0[ 7]}} &  7 |
+                      {$clog2(TLBNUM){match0[ 8]}} &  8 |
+                      {$clog2(TLBNUM){match0[ 9]}} &  9 |
+                      {$clog2(TLBNUM){match0[10]}} & 10 |
+                      {$clog2(TLBNUM){match0[11]}} & 11 |
+                      {$clog2(TLBNUM){match0[12]}} & 12 |
+                      {$clog2(TLBNUM){match0[13]}} & 13 |
+                      {$clog2(TLBNUM){match0[14]}} & 14 |
+                      {$clog2(TLBNUM){match0[15]}} & 15;
     assign s0_ppg_sel = tlb_ps[s0_index] ? s0_vppn[10] : s0_vppn[0];
     assign s0_ps      = tlb_ps[s0_index] ? 6'd22 : 6'd12;
 
@@ -173,7 +188,22 @@ module tlb #(
     assign s0_v     = s0_ppg_sel ? tlb_v1  [s0_index] : tlb_v0  [s0_index];
 
     assign s1_found = |match1;
-    assign s1_index = $clog2(match1);
+    assign s1_index = {$clog2(TLBNUM){match1[ 0]}} &  0 |
+                      {$clog2(TLBNUM){match1[ 1]}} &  1 |
+                      {$clog2(TLBNUM){match1[ 2]}} &  2 |
+                      {$clog2(TLBNUM){match1[ 3]}} &  3 |
+                      {$clog2(TLBNUM){match1[ 4]}} &  4 |
+                      {$clog2(TLBNUM){match1[ 5]}} &  5 |
+                      {$clog2(TLBNUM){match1[ 6]}} &  6 |
+                      {$clog2(TLBNUM){match1[ 7]}} &  7 |
+                      {$clog2(TLBNUM){match1[ 8]}} &  8 |
+                      {$clog2(TLBNUM){match1[ 9]}} &  9 |
+                      {$clog2(TLBNUM){match1[10]}} & 10 |
+                      {$clog2(TLBNUM){match1[11]}} & 11 |
+                      {$clog2(TLBNUM){match1[12]}} & 12 |
+                      {$clog2(TLBNUM){match1[13]}} & 13 |
+                      {$clog2(TLBNUM){match1[14]}} & 14 |
+                      {$clog2(TLBNUM){match1[15]}} & 15;
     assign s1_ppg_sel = tlb_ps[s1_index] ? s1_vppn[10] : s1_vppn[0];
     assign s1_ps      = tlb_ps[s1_index] ? 6'd22 : 6'd12;
 
