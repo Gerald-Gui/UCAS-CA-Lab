@@ -31,3 +31,8 @@ Lab11-Lab12/CPU_CDE_AXI/mycpu_axi_verify/rtl/ram_wrap/
 Lab11-Lab12/CPU_CDE_AXI/mycpu_axi_verify/rtl/CONFREG/
 Lab11-Lab12/CPU_CDE_AXI/mycpu_axi_verify/rtl/xilinx_ip/
 Lab11-Lab12/CPU_CDE_AXI/mycpu_axi_verify/rtl/soc_axi_lite_top.v
+
+Lab13_TLB/rtl/xilinx_ip/
+Lab13_TLB/rtl/tlb_top.v
+Lab13_TLB/run_vivado/
+Lab13_TLB/testbench/
