@@ -149,11 +149,11 @@
     endgenerate
     \end{minted}
     
-    由子匹配结果容易获得一套各\texttt{invtlb\_op}对应的掩码，INVTLB指令的无效实现只需要将\texttt{op}对应的掩码中为1处的\texttt{tlb\_e}域抹零即可。
+    由子匹配结果容易获得一套各\texttt{invtlb\_op}对应的掩码，INVTLB指令的无效实现只需要将\texttt{op}对应的掩码中为1处的\texttt{tlb\_e}域抹零即可。\footnote{INVTLB功能在lab13中不做验证，故而在lab13的代码中此处[0]置为全0。}
     
     \begin{minted}{verilog}
-    assign inv_op_mask[0] = 16'b0;
-    assign inv_op_mask[1] = 16'b0;
+    assign inv_op_mask[0] = 16'hffff;
+    assign inv_op_mask[1] = 16'hffff;
     assign inv_op_mask[2] = inv_match[1];
     assign inv_op_mask[3] = inv_match[0];
     assign inv_op_mask[4] = inv_match[0] & inv_match[2];

@@ -194,8 +194,8 @@ module tlb #(
     end        
     endgenerate
 
-    assign inv_op_mask[0] = 16'b0;
-    assign inv_op_mask[1] = 16'b0;
+    assign inv_op_mask[0] = 16'b0;  // TODO: update to 16'hffff if enable INVTLB
+    assign inv_op_mask[1] = 16'hffff;
     assign inv_op_mask[2] = inv_match[1];
     assign inv_op_mask[3] = inv_match[0];
     assign inv_op_mask[4] = inv_match[0] & inv_match[2];
