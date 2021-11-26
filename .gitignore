@@ -22,15 +22,15 @@ Lab03-Lab09/CPU_CDE/mycpu_verify/rtl/CONFREG/
 Lab03-Lab09/CPU_CDE/mycpu_verify/rtl/xilinx_ip/
 Lab03-Lab09/CPU_CDE/mycpu_verify/rtl/soc_lite_top.v
 
-Lab11-Lab12/CPU_CDE_AXI/func/
-Lab11-Lab12/CPU_CDE_AXI/gettrace/
-Lab11-Lab12/CPU_CDE_AXI/mycpu_axi_verify/run_vivado/
-Lab11-Lab12/CPU_CDE_AXI/mycpu_axi_verify/testbench/
-Lab11-Lab12/CPU_CDE_AXI/mycpu_axi_verify/rtl/axi_wrap/
-Lab11-Lab12/CPU_CDE_AXI/mycpu_axi_verify/rtl/ram_wrap/
-Lab11-Lab12/CPU_CDE_AXI/mycpu_axi_verify/rtl/CONFREG/
-Lab11-Lab12/CPU_CDE_AXI/mycpu_axi_verify/rtl/xilinx_ip/
-Lab11-Lab12/CPU_CDE_AXI/mycpu_axi_verify/rtl/soc_axi_lite_top.v
+Lab11-Lab15/CPU_CDE_AXI/func/
+Lab11-Lab15/CPU_CDE_AXI/gettrace/
+Lab11-Lab15/CPU_CDE_AXI/mycpu_axi_verify/run_vivado/
+Lab11-Lab15/CPU_CDE_AXI/mycpu_axi_verify/testbench/
+Lab11-Lab15/CPU_CDE_AXI/mycpu_axi_verify/rtl/axi_wrap/
+Lab11-Lab15/CPU_CDE_AXI/mycpu_axi_verify/rtl/ram_wrap/
+Lab11-Lab15/CPU_CDE_AXI/mycpu_axi_verify/rtl/CONFREG/
+Lab11-Lab15/CPU_CDE_AXI/mycpu_axi_verify/rtl/xilinx_ip/
+Lab11-Lab15/CPU_CDE_AXI/mycpu_axi_verify/rtl/soc_axi_lite_top.v
 
 Lab13_TLB/rtl/xilinx_ip/
 Lab13_TLB/rtl/tlb_top.v
