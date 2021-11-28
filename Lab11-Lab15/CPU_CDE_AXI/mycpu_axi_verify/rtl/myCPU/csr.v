@@ -49,23 +49,25 @@ module csr(
     input         w_tlb_d1,
     input         w_tlb_v1,
 
-    output         r_tlb_e,
-    output  [ 5:0] r_tlb_ps,
-    output  [18:0] r_tlb_vppn,
-    output  [ 9:0] r_tlb_asid,
-    output         r_tlb_g,
+    output [ 3:0] r_tlb_index,
 
-    output  [19:0] r_tlb_ppn0,
-    output  [ 1:0] r_tlb_plv0,
-    output  [ 1:0] r_tlb_mat0,
-    output         r_tlb_d0,
-    output         r_tlb_v0,
+    output        r_tlb_e,
+    output [ 5:0] r_tlb_ps,
+    output [18:0] r_tlb_vppn,
+    output [ 9:0] r_tlb_asid,
+    output        r_tlb_g,
 
-    output  [19:0] r_tlb_ppn1,
-    output  [ 1:0] r_tlb_plv1,
-    output  [ 1:0] r_tlb_mat1,
-    output         r_tlb_d1,
-    output         r_tlb_v1
+    output [19:0] r_tlb_ppn0,
+    output [ 1:0] r_tlb_plv0,
+    output [ 1:0] r_tlb_mat0,
+    output        r_tlb_d0,
+    output        r_tlb_v0,
+
+    output [19:0] r_tlb_ppn1,
+    output [ 1:0] r_tlb_plv1,
+    output [ 1:0] r_tlb_mat1,
+    output        r_tlb_d1,
+    output        r_tlb_v1
 );
 
     // lab8 csrs
@@ -419,10 +421,6 @@ module csr(
     /*
      *  TLBIDX
      */
-    // reg  [ 3:0] csr_tlbidx_index;
-    // reg  [ 5:0] csr_tlbidx_ps;
-    // reg         csr_tlbidx_ne;
-    // wire [31:0] csr_tlbidx_rval;
     always @ (posedge clk) begin
         if (rst) begin
             csr_tlbidx_index <= 4'b0;
@@ -582,5 +580,28 @@ module csr(
     assign exc_entry   = csr_eentry_rval;
     assign exc_retaddr = csr_era_rval;
     assign has_int     = (|(csr_estat_is & csr_ecfg_lie)) & csr_crmd_ie;
+
+    /*
+     *  output TLB entry
+     */
+    assign r_tlb_index = csr_tlbidx_index;
+
+    assign r_tlb_e    = ~csr_tlbidx_ne;
+    assign r_tlb_ps   =  csr_tlbidx_ps;
+    assign r_tlb_vppn =  csr_tlbehi_vppn;
+    assign r_tlb_asid =  csr_asid_asid;
+    assign r_tlb_g    =  csr_tlbelo0_g & csr_tlbelo1_g;
+
+    assign r_tlb_ppn0 = csr_tlbelo0_ppn[19:0];
+    assign r_tlb_plv0 = csr_tlbelo0_plv;
+    assign r_tlb_mat0 = csr_tlbelo0_mat;
+    assign r_tlb_d0   = csr_tlbelo0_d;
+    assign r_tlb_v0   = csr_tlbelo0_v;
+
+    assign r_tlb_ppn1 = csr_tlbelo1_ppn[19:0];
+    assign r_tlb_plv1 = csr_tlbelo1_plv;
+    assign r_tlb_mat1 = csr_tlbelo1_mat;
+    assign r_tlb_d1   = csr_tlbelo1_d;
+    assign r_tlb_v1   = csr_tlbelo1_v;
 
 endmodule
