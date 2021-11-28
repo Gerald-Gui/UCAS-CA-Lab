@@ -19,6 +19,16 @@
     `define CSR_TCFG    14'h041
     `define CSR_TVAL    14'h042
     `define CSR_TICLR   14'h044
+    // lab14 csrs
+    `define CSR_TLBIDX  14'h010
+    `define CSR_TLBEHI  14'h011
+    `define CSR_TLBELO0 14'h012
+    `define CSR_TLBELO1 14'h013
+    `define CSR_ASID    14'h018
+    `define CSR_TLBRENTRY 14'h088
+    // lab15 csrs
+    `define CSR_DMW0    14'h180
+    `define CSR_DMW1    14'h181
 
     /*
      *  CSR fields
@@ -28,11 +38,10 @@
     // CRMD
     `define CSR_CRMD_PLV    1:0
     `define CSR_CRMD_IE     2
-    /* DA PG DATF DATM -> addr translation: not implement yet */
-    // `define CSR_CRMD_DA     3
-    // `define CSR_CRMD_PG     4
-    // `define CSR_CRMD_DATF   6:5
-    // `define CSR_CRMD_DATM   8:7
+    `define CSR_CRMD_DA     3
+    `define CSR_CRMD_PG     4
+    `define CSR_CRMD_DATF   6:5
+    `define CSR_CRMD_DATM   8:7
     // PRMD
     `define CSR_PRMD_PPLV   1:0
     `define CSR_PRMD_PIE    2
@@ -61,6 +70,24 @@
     // TICLR
     `define CSR_TICLR_CLR   0
     
+    // lab14 csrs
+    // TLBIDX
+    `define CSR_TLBIDX_INDEX    3:0
+    `define CSR_TLBIDX_PS       29:24
+    `define CSR_TLBIDX_NE       31
+    // TLBEHI
+    `define CSR_TLBEHI_VPPN     31:13
+    // TLBELO0 TLBELO1
+    `define CSR_TLBELO_V        0
+    `define CSR_TLBELO_D        1
+    `define CSR_TLBELO_PLV      3:2
+    `define CSR_TLBELO_MAT      5:4
+    `define CSR_TLBELO_G        6
+    `define CSR_TLBELO_PPN      31:8
+    // ASID
+    `define CSR_ASID_ASID       9:0
+    // TLBRENTRY
+    `define CSR_TLBRENTRY_PA    31:6
 
     // exception codes
     // ECODE: 6 bits -> 21:16 in ESTAT
@@ -75,9 +102,11 @@
     `define ECODE_ALE   6'h09
     `define ECODE_BRK   6'h0C
     `define ECODE_INE   6'h0D
+    // lab14
+    `define ECODE_TLBR  6'h3F
 
     // CSR write masks
-    `define CSR_MASK_CRMD   32'h0000_0007   // only plv, ie
+    `define CSR_MASK_CRMD   32'h0000_01ff
     `define CSR_MASK_PRMD   32'h0000_0007
     `define CSR_MASK_ESTAT  32'h0000_0003   // only SIS RW
     `define CSR_MASK_ERA    32'hffff_ffff
@@ -89,4 +118,10 @@
     `define CSR_MASK_TID    32'hffff_ffff
     `define CSR_MASK_TCFG   32'hffff_ffff
     `define CSR_MASK_TICLR  32'h0000_0001
+    // lab14
+    `define CSR_MASK_TLBIDX 32'hbf00_000f
+    `define CSR_MASK_TLBEHI 32'hffff_e000
+    `define CSR_MASK_TLBELO 32'hffff_ff7f
+    `define CSR_MASK_ASID   32'h0000_03ff
+    `define CSR_MASK_TLBRENTRY 32'hffff_ffc0
 `endif
