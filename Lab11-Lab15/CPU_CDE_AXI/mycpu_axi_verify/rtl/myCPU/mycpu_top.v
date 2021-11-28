@@ -137,6 +137,9 @@ wire            data_sram_addr_ok;
 wire            data_sram_data_ok;
 wire [31:0]     data_sram_rdata;
 
+// rand based on LCG
+reg [3:0] random;
+
 sram_AXI_bridge cpu_sram_AXI_bridge(
     .aclk      (aclk       ),
     .aresetn   (aresetn    ),   //low active
@@ -399,5 +402,14 @@ csr u_csr(
     .exc_entry  (exc_entry  ),
     .exc_retaddr(exc_retaddr)
 );
+
+// X_{n+1} = (5 * X_n + 13) mod 16
+always @ (posedge aclk) begin
+    if (reset) begin
+        random <= 4'b0;
+    end else begin
+        random <= random << 2 + random + 4'd13;
+    end
+end
 
 endmodule
