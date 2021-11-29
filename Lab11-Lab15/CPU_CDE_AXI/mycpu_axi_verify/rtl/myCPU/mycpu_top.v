@@ -214,8 +214,8 @@ wire        r_v1;
 
 
 assign wb_flush = wb_exc | wb_ertn | wb_refetch;
-assign wb_flush_target = wb_refetch ? wb_pc + 32'd4 :
-                         wb_exc     ? exc_entry     :
+assign wb_flush_target = wb_exc     ? exc_entry     :
+                         wb_refetch ? wb_pc + 32'd4 :
                                       exc_retaddr;
 
 sram_AXI_bridge cpu_sram_AXI_bridge(
