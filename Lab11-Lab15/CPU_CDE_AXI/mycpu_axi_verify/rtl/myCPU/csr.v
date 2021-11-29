@@ -35,41 +35,41 @@ module csr(
     input         tlbfill_we,
     input  [ 3:0] tlb_hit_index,
     
-    input         w_tlb_e,
-    input  [ 5:0] w_tlb_ps,
-    input  [18:0] w_tlb_vppn,
-    input  [ 9:0] w_tlb_asid,
-    input         w_tlb_g,
+    input         r_tlb_e,
+    input  [ 5:0] r_tlb_ps,
+    input  [18:0] r_tlb_vppn,
+    input  [ 9:0] r_tlb_asid,
+    input         r_tlb_g,
 
-    input  [19:0] w_tlb_ppn0,
-    input  [ 1:0] w_tlb_plv0,
-    input  [ 1:0] w_tlb_mat0,
-    input         w_tlb_d0,
-    input         w_tlb_v0,
+    input  [19:0] r_tlb_ppn0,
+    input  [ 1:0] r_tlb_plv0,
+    input  [ 1:0] r_tlb_mat0,
+    input         r_tlb_d0,
+    input         r_tlb_v0,
 
-    input  [19:0] w_tlb_ppn1,
-    input  [ 1:0] w_tlb_plv1,
-    input  [ 1:0] w_tlb_mat1,
-    input         w_tlb_d1,
-    input         w_tlb_v1,
+    input  [19:0] r_tlb_ppn1,
+    input  [ 1:0] r_tlb_plv1,
+    input  [ 1:0] r_tlb_mat1,
+    input         r_tlb_d1,
+    input         r_tlb_v1,
 
-    output        r_tlb_e,
-    output [ 5:0] r_tlb_ps,
-    output [18:0] r_tlb_vppn,
-    output [ 9:0] r_tlb_asid,
-    output        r_tlb_g,
+    output        w_tlb_e,
+    output [ 5:0] w_tlb_ps,
+    output [18:0] w_tlb_vppn,
+    output [ 9:0] w_tlb_asid,
+    output        w_tlb_g,
 
-    output [19:0] r_tlb_ppn0,
-    output [ 1:0] r_tlb_plv0,
-    output [ 1:0] r_tlb_mat0,
-    output        r_tlb_d0,
-    output        r_tlb_v0,
+    output [19:0] w_tlb_ppn0,
+    output [ 1:0] w_tlb_plv0,
+    output [ 1:0] w_tlb_mat0,
+    output        w_tlb_d0,
+    output        w_tlb_v0,
 
-    output [19:0] r_tlb_ppn1,
-    output [ 1:0] r_tlb_plv1,
-    output [ 1:0] r_tlb_mat1,
-    output        r_tlb_d1,
-    output        r_tlb_v1
+    output [19:0] w_tlb_ppn1,
+    output [ 1:0] w_tlb_plv1,
+    output [ 1:0] w_tlb_mat1,
+    output        w_tlb_d1,
+    output        w_tlb_v1
 );
 
     // lab8 csrs
@@ -426,10 +426,10 @@ module csr(
             csr_tlbidx_ps    <= 6'b0;
             csr_tlbidx_ne    <= 1'b1;
         end else if (tlbrd_we) begin
-            if (w_tlb_e) begin
-                csr_tlbidx_ps <= w_tlb_ps;
+            if (r_tlb_e) begin
+                csr_tlbidx_ps <= r_tlb_ps;
             end
-            csr_tlbidx_ne <= ~w_tlb_e;
+            csr_tlbidx_ne <= ~r_tlb_e;
         end else if (tlbsrch_we) begin
             csr_tlbidx_index <= tlbsrch_hit ? tlb_hit_index : csr_tlbidx_index;
             csr_tlbidx_ne <= ~tlbsrch_hit;
@@ -450,8 +450,8 @@ module csr(
     always @ (posedge clk) begin
         if (rst) begin
             csr_tlbehi_vppn <= 19'b0;
-        end else if (tlbrd_we && w_tlb_e) begin
-            csr_tlbehi_vppn <= w_tlb_vppn;
+        end else if (tlbrd_we && r_tlb_e) begin
+            csr_tlbehi_vppn <= r_tlb_vppn;
         end else if (csr_we && csr_wnum == `CSR_TLBEHI) begin
             csr_tlbehi_vppn <= csr_wmask[`CSR_TLBEHI_VPPN] & csr_wval[`CSR_TLBEHI_VPPN] |
                               ~csr_wmask[`CSR_TLBEHI_VPPN] & csr_tlbehi_vppn;
@@ -478,20 +478,20 @@ module csr(
             csr_tlbelo1_mat <= 2'b0;
             csr_tlbelo1_g   <= 1'b0;
             csr_tlbelo1_ppn <= 24'b0;
-        end else if (tlbrd_we && w_tlb_e) begin
-            csr_tlbelo0_v   <= w_tlb_v0;
-            csr_tlbelo0_d   <= w_tlb_d0;
-            csr_tlbelo0_plv <= w_tlb_plv0;
-            csr_tlbelo0_mat <= w_tlb_mat0;
-            csr_tlbelo0_g   <= w_tlb_g;
-            csr_tlbelo0_ppn <= {4'b0, w_tlb_ppn0};
+        end else if (tlbrd_we && r_tlb_e) begin
+            csr_tlbelo0_v   <= r_tlb_v0;
+            csr_tlbelo0_d   <= r_tlb_d0;
+            csr_tlbelo0_plv <= r_tlb_plv0;
+            csr_tlbelo0_mat <= r_tlb_mat0;
+            csr_tlbelo0_g   <= r_tlb_g;
+            csr_tlbelo0_ppn <= {4'b0, r_tlb_ppn0};
 
-            csr_tlbelo1_v   <= w_tlb_v1;
-            csr_tlbelo1_d   <= w_tlb_d1;
-            csr_tlbelo1_plv <= w_tlb_plv1;
-            csr_tlbelo1_mat <= w_tlb_mat1;
-            csr_tlbelo1_g   <= w_tlb_g;
-            csr_tlbelo1_ppn <= {4'b0, w_tlb_ppn1};
+            csr_tlbelo1_v   <= r_tlb_v1;
+            csr_tlbelo1_d   <= r_tlb_d1;
+            csr_tlbelo1_plv <= r_tlb_plv1;
+            csr_tlbelo1_mat <= r_tlb_mat1;
+            csr_tlbelo1_g   <= r_tlb_g;
+            csr_tlbelo1_ppn <= {4'b0, r_tlb_ppn1};
         end else if (csr_we) begin
             if (csr_wnum == `CSR_TLBELO0) begin
                 csr_tlbelo0_v   <= csr_wmask[`CSR_TLBELO_V]   & csr_wval[`CSR_TLBELO_V]   |
@@ -531,8 +531,8 @@ module csr(
     always @ (posedge clk) begin
         if (rst) begin
             csr_asid_asid <= 10'b0;
-        end else if (tlbrd_we && w_tlb_e) begin
-            csr_asid_asid <= w_tlb_asid;
+        end else if (tlbrd_we && r_tlb_e) begin
+            csr_asid_asid <= r_tlb_asid;
         end else if (csr_we && csr_wnum == `CSR_ASID) begin
             csr_asid_asid <= csr_wmask[`CSR_ASID_ASID] & csr_wval[`CSR_ASID_ASID] |
                             ~csr_wmask[`CSR_ASID_ASID] & csr_asid_asid;
@@ -585,22 +585,22 @@ module csr(
     /*
      *  output TLB entry
      */
-    assign r_tlb_e    = ~csr_tlbidx_ne;
-    assign r_tlb_ps   =  csr_tlbidx_ps;
-    assign r_tlb_vppn =  csr_tlbehi_vppn;
-    assign r_tlb_asid =  csr_asid_asid;
-    assign r_tlb_g    =  csr_tlbelo0_g & csr_tlbelo1_g;
+    assign w_tlb_e    = ~csr_tlbidx_ne;
+    assign w_tlb_ps   =  csr_tlbidx_ps;
+    assign w_tlb_vppn =  csr_tlbehi_vppn;
+    assign w_tlb_asid =  csr_asid_asid;
+    assign w_tlb_g    =  csr_tlbelo0_g & csr_tlbelo1_g;
 
-    assign r_tlb_ppn0 = csr_tlbelo0_ppn[19:0];
-    assign r_tlb_plv0 = csr_tlbelo0_plv;
-    assign r_tlb_mat0 = csr_tlbelo0_mat;
-    assign r_tlb_d0   = csr_tlbelo0_d;
-    assign r_tlb_v0   = csr_tlbelo0_v;
+    assign w_tlb_ppn0 = csr_tlbelo0_ppn[19:0];
+    assign w_tlb_plv0 = csr_tlbelo0_plv;
+    assign w_tlb_mat0 = csr_tlbelo0_mat;
+    assign w_tlb_d0   = csr_tlbelo0_d;
+    assign w_tlb_v0   = csr_tlbelo0_v;
 
-    assign r_tlb_ppn1 = csr_tlbelo1_ppn[19:0];
-    assign r_tlb_plv1 = csr_tlbelo1_plv;
-    assign r_tlb_mat1 = csr_tlbelo1_mat;
-    assign r_tlb_d1   = csr_tlbelo1_d;
-    assign r_tlb_v1   = csr_tlbelo1_v;
+    assign w_tlb_ppn1 = csr_tlbelo1_ppn[19:0];
+    assign w_tlb_plv1 = csr_tlbelo1_plv;
+    assign w_tlb_mat1 = csr_tlbelo1_mat;
+    assign w_tlb_d1   = csr_tlbelo1_d;
+    assign w_tlb_v1   = csr_tlbelo1_v;
 
 endmodule
