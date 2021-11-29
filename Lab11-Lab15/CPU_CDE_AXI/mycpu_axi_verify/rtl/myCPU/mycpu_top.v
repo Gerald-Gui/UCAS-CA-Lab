@@ -110,6 +110,22 @@ wire        csr_has_int;
 wire [31:0] exc_entry;
 wire [31:0] exc_retaddr;
 
+wire        wb_refetch;
+
+wire        wb_flush;
+wire [31:0] wb_flush_target;
+
+wire [ 9:0] csr_asid_asid;
+wire [18:0] csr_tlbehi_vppn;
+wire [ 3:0] csr_tlbidx_index;
+
+wire tlbrd_we;
+wire tlbsrch_we;
+wire tlbwr_we;
+wire tlbfill_we;
+wire tlbsrch_hit;
+wire [ 3:0] tlbsrch_hit_index;
+
 wire [`ES_CSR_BLK_BUS_WD-1:0] es_csr_blk_bus;
 wire [`MS_CSR_BLK_BUS_WD-1:0] ms_csr_blk_bus;
 wire [`WS_CSR_BLK_BUS_WD-1:0] ws_csr_blk_bus;
@@ -137,8 +153,70 @@ wire            data_sram_addr_ok;
 wire            data_sram_data_ok;
 wire [31:0]     data_sram_rdata;
 
-// rand based on LCG
-reg [3:0] random;
+// TLB ports
+wire [18:0] s0_vppn;
+wire        s0_va_bit12;
+wire [ 9:0] s0_asid;
+wire        s0_found;
+wire [ 3:0] s0_index;
+wire [19:0] s0_ppn;
+wire [ 5:0] s0_ps;
+wire [ 1:0] s0_plv;
+wire [ 1:0] s0_mat;
+wire        s0_d;
+wire        s0_v;
+wire [18:0] s1_vppn;
+wire        s1_va_bit12;
+wire [ 9:0] s1_asid;
+wire        s1_found;
+wire [ 3:0] s1_index;
+wire [19:0] s1_ppn;
+wire [ 5:0] s1_ps;
+wire [ 1:0] s1_plv;
+wire [ 1:0] s1_mat;
+wire        s1_d;
+wire        s1_v;
+wire [ 4:0] invtlb_op;
+wire        invtlb_valid;
+wire        we;
+wire [ 3:0] w_index;
+wire        w_e;
+wire [18:0] w_vppn;
+wire [ 5:0] w_ps;
+wire [ 9:0] w_asid;
+wire        w_g;
+wire [19:0] w_ppn0;
+wire [ 1:0] w_plv0;
+wire [ 1:0] w_mat0;
+wire        w_d0;
+wire        w_v0;
+wire [19:0] w_ppn1;
+wire [ 1:0] w_plv1;
+wire [ 1:0] w_mat1;
+wire        w_d1;
+wire        w_v1;
+wire [ 3:0] r_index;
+wire        r_e;
+wire [18:0] r_vppn;
+wire [ 5:0] r_ps;
+wire [ 9:0] r_asid;
+wire        r_g;
+wire [19:0] r_ppn0;
+wire [ 1:0] r_plv0;
+wire [ 1:0] r_mat0;
+wire        r_d0;
+wire        r_v0;
+wire [19:0] r_ppn1;
+wire [ 1:0] r_plv1;
+wire [ 1:0] r_mat1;
+wire        r_d1;
+wire        r_v1;
+
+
+assign wb_flush = wb_exc | wb_ertn | wb_refetch;
+assign wb_flush_target = wb_refetch ? wb_pc + 32'd4 :
+                         wb_exc     ? exc_entry     :
+                                      exc_retaddr;
 
 sram_AXI_bridge cpu_sram_AXI_bridge(
     .aclk      (aclk       ),
@@ -225,10 +303,8 @@ pre_if_stage pre_if_stage(
     .inst_sram_addr_ok(inst_sram_addr_ok),
     .inst_sram_data_ok(inst_sram_data_ok),
 
-    .wb_exc         (wb_exc         ),
-    .wb_ertn        (wb_ertn        ),
-    .exc_entry      (exc_entry      ),
-    .exc_retaddr    (exc_retaddr    )
+    .flush       (wb_flush),
+    .flush_target(wb_flush_target)
 );
 
 // IF stage
@@ -251,8 +327,7 @@ if_stage if_stage(
     .inst_sram_data_ok(inst_sram_data_ok),
     .inst_sram_rdata  (inst_sram_rdata  ),
 
-    .wb_exc         (wb_exc         ),
-    .wb_ertn        (wb_ertn        )
+    .wb_flush(wb_flush)
 );
 // ID stage
 id_stage id_stage(
@@ -276,8 +351,7 @@ id_stage id_stage(
     .ms_fwd_blk_bus (ms_fwd_blk_bus ),
 
     .csr_has_int    (csr_has_int    ),
-    .wb_exc         (wb_exc         ),
-    .wb_ertn        (wb_ertn        ),
+    .wb_flush       (wb_flush       ),
     .csr_rnum       (csr_rnum       ),
     .csr_rval       (csr_rval       ),
 
@@ -312,11 +386,18 @@ exe_stage exe_stage(
     .es_div_res_bus (div_res_bus    ),
     .div_finish     (div_finish     ),
 
-    .wb_exc         (wb_exc         ),
-    .wb_ertn        (wb_ertn        ),
+    .wb_flush       (wb_flush       ),
     .ms_to_es_ls_cancel(ms_to_es_ls_cancel),
 
-    .es_csr_blk_bus (es_csr_blk_bus )
+    .es_csr_blk_bus (es_csr_blk_bus ),
+
+    .s1_va_highbits ({s1_vppn, s1_va_bit12}),
+    .s1_asid        (s1_asid),
+    .invtlb_valid   (invtlb_valid),
+    .invtlb_op      (invtlb_op),
+
+    .csr_asid_asid  (csr_asid_asid),
+    .csr_tlbehi_vppn(csr_tlbehi_vppn)
 );
 // MEM stage
 mem_stage mem_stage(
@@ -340,10 +421,12 @@ mem_stage mem_stage(
     .ms_div_res_bus (div_res_bus    ),
     .ms_div_finish  (div_finish     ),
     
-    .wb_exc         (wb_exc         ),
-    .wb_ertn        (wb_ertn        ),
+    .wb_flush       (wb_flush       ),
     .ms_to_es_ls_cancel(ms_to_es_ls_cancel),
-    .ms_csr_blk_bus (ms_csr_blk_bus )
+    .ms_csr_blk_bus (ms_csr_blk_bus ),
+
+    .s1_found       (s1_found       ),
+    .s1_index       (s1_index       )
 );
 // WB stage
 wb_stage wb_stage(
@@ -375,7 +458,22 @@ wb_stage wb_stage(
 
     .ertn_flush     (wb_ertn        ),
 
-    .ws_csr_blk_bus (ws_csr_blk_bus )
+    .refetch_flush  (wb_refetch     ),
+
+    .ws_csr_blk_bus (ws_csr_blk_bus ),
+
+    .r_index         (r_index),
+    .tlbrd_we        (tlbrd_we),
+    .csr_tlbidx_index(csr_tlbidx_index),
+
+    .tlbwr_we        (tlbwr_we),
+    .tlbfill_we      (tlbfill_we),
+    .w_index         (w_index),
+    .we              (we),
+    
+    .tlbsrch_we      (tlbsrch_we),
+    .tlbsrch_hit     (tlbsrch_hit),
+    .tlbsrch_hit_index(tlbsrch_hit_index)
 );
 
 csr u_csr(
@@ -400,16 +498,120 @@ csr u_csr(
     
     .has_int    (csr_has_int),
     .exc_entry  (exc_entry  ),
-    .exc_retaddr(exc_retaddr)
+    .exc_retaddr(exc_retaddr),
+
+    .csr_asid_asid   (csr_asid_asid),
+    .csr_tlbehi_vppn (csr_tlbehi_vppn),
+    .csr_tlbidx_index(csr_tlbidx_index),
+
+    .tlbsrch_we      (tlbsrch_we),
+    .tlbsrch_hit     (tlbsrch_hit),
+    .tlb_hit_index   (tlbsrch_hit_index),
+    .tlbrd_we        (tlbrd_we),
+    .tlbwr_we        (tlbwr_we),
+    .tlbfill_we      (tlbfill_we),
+
+    .w_tlb_e         (r_e),
+    .w_tlb_ps        (r_ps),
+    .w_tlb_vppn      (r_vppn),
+    .w_tlb_asid      (r_asid),
+    .w_tlb_g         (r_g),
+    .w_tlb_ppn0      (r_ppn0),
+    .w_tlb_plv0      (r_plv0),
+    .w_tlb_mat0      (r_mat0),
+    .w_tlb_d0        (r_d0),
+    .w_tlb_v0        (r_v0),
+    .w_tlb_ppn1      (r_ppn1),
+    .w_tlb_plv1      (r_plv1),
+    .w_tlb_mat1      (r_mat1),
+    .w_tlb_d1        (r_d1),
+    .w_tlb_v1        (r_v1),
+
+    .r_tlb_e         (w_e),
+    .r_tlb_ps        (w_ps),
+    .r_tlb_vppn      (w_vppn),
+    .r_tlb_asid      (w_asid),
+    .r_tlb_g         (w_g),
+    .r_tlb_ppn0      (w_ppn0),
+    .r_tlb_plv0      (w_plv0),
+    .r_tlb_mat0      (w_mat0),
+    .r_tlb_d0        (w_d0),
+    .r_tlb_v0        (w_v0),
+    .r_tlb_ppn1      (w_ppn1),
+    .r_tlb_plv1      (w_plv1),
+    .r_tlb_mat1      (w_mat1),
+    .r_tlb_d1        (w_d1),
+    .r_tlb_v1        (w_v1)
 );
 
-// X_{n+1} = (5 * X_n + 13) mod 16
-always @ (posedge aclk) begin
-    if (reset) begin
-        random <= 4'b0;
-    end else begin
-        random <= random << 2 + random + 4'd13;
-    end
-end
+tlb #(.TLBNUM(16)) u_tlb(
+    .clk        (aclk),
+    
+    .s0_vppn    (s0_vppn),
+    .s0_va_bit12(s0_va_bit12),
+    .s0_asid    (s0_asid),
+    .s0_found   (s0_found),
+    .s0_index   (s0_index),
+    .s0_ppn     (s0_ppn),
+    .s0_ps      (s0_ps),
+    .s0_plv     (s0_plv),
+    .s0_mat     (s0_mat),
+    .s0_d       (s0_d),
+    .s0_v       (s0_v),
+
+    .s1_vppn    (s1_vppn),
+    .s1_va_bit12(s1_va_bit12),
+    .s1_asid    (s1_asid),
+    .s1_found   (s1_found),
+    .s1_index   (s1_index),
+    .s1_ppn     (s1_ppn),
+    .s1_ps      (s1_ps),
+    .s1_plv     (s1_plv),
+    .s1_mat     (s1_mat),
+    .s1_d       (s1_d),
+    .s1_v       (s1_v),
+
+    .invtlb_op  (invtlb_op),
+    .invtlb_valid(invtlb_valid),
+    
+    .we         (we),
+    .w_index    (w_index),
+    .w_e        (w_e),
+    .w_vppn     (w_vppn),
+    .w_ps       (w_ps),
+    .w_asid     (w_asid),
+    .w_g        (w_g),
+
+    .w_ppn0     (w_ppn0),
+    .w_plv0     (w_plv0),
+    .w_mat0     (w_mat0),
+    .w_d0       (w_d0),
+    .w_v0       (w_v0),
+
+    .w_ppn1     (w_ppn1),
+    .w_plv1     (w_plv1),
+    .w_mat1     (w_mat1),
+    .w_d1       (w_d1),
+    .w_v1       (w_v1),
+
+    .r_index    (r_index),
+    .r_e        (r_e),
+    .r_vppn     (r_vppn),
+    .r_ps       (r_ps),
+    .r_asid     (r_asid),
+    .r_g        (r_g),
+
+    .r_ppn0     (r_ppn0),
+    .r_plv0     (r_plv0),
+    .r_mat0     (r_mat0),
+    .r_d0       (r_d0),
+    .r_v0       (r_v0),
+
+    .r_ppn1     (r_ppn1),
+    .r_plv1     (r_plv1),
+    .r_mat1     (r_mat1),
+    .r_d1       (r_d1),
+    .r_v1       (r_v1)
+);
 
 endmodule

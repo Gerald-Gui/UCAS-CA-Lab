@@ -24,6 +24,10 @@ module csr(
     output [31:0] exc_entry,
     output [31:0] exc_retaddr,
 
+    output reg [ 9:0] csr_asid_asid,
+    output reg [18:0] csr_tlbehi_vppn,
+    output reg [ 3:0] csr_tlbidx_index,
+
     input         tlbsrch_we,
     input         tlbsrch_hit,
     input         tlbrd_we,
@@ -48,8 +52,6 @@ module csr(
     input  [ 1:0] w_tlb_mat1,
     input         w_tlb_d1,
     input         w_tlb_v1,
-
-    output [ 3:0] r_tlb_index,
 
     output        r_tlb_e,
     output [ 5:0] r_tlb_ps,
@@ -117,12 +119,10 @@ module csr(
 
     wire [31:0] csr_ticlr_rval;
 
-    reg  [ 3:0] csr_tlbidx_index;
     reg  [ 5:0] csr_tlbidx_ps;
     reg         csr_tlbidx_ne;
     wire [31:0] csr_tlbidx_rval;
 
-    reg  [18:0] csr_tlbehi_vppn;
     wire [31:0] csr_tlbehi_rval;
 
     reg         csr_tlbelo0_v;
@@ -141,7 +141,6 @@ module csr(
     reg  [23:0] csr_tlbelo1_ppn;
     wire [31:0] csr_tlbelo1_rval;
 
-    reg  [ 9:0] csr_asid_asid;
     wire [31:0] csr_asid_rval;
 
     reg  [25:0] csr_tlbrentry_pa;
@@ -427,8 +426,9 @@ module csr(
             csr_tlbidx_ps    <= 6'b0;
             csr_tlbidx_ne    <= 1'b1;
         end else if (tlbrd_we) begin
-            csr_tlbidx_index <= tlb_hit_index;
-            csr_tlbidx_ps <= w_tlb_ps;
+            if (w_tlb_e) begin
+                csr_tlbidx_ps <= w_tlb_ps;
+            end
             csr_tlbidx_ne <= ~w_tlb_e;
         end else if (tlbsrch_we) begin
             csr_tlbidx_index <= tlbsrch_hit ? tlb_hit_index : csr_tlbidx_index;
@@ -450,7 +450,7 @@ module csr(
     always @ (posedge clk) begin
         if (rst) begin
             csr_tlbehi_vppn <= 19'b0;
-        end else if (tlbrd_we) begin
+        end else if (tlbrd_we && w_tlb_e) begin
             csr_tlbehi_vppn <= w_tlb_vppn;
         end else if (csr_we && csr_wnum == `CSR_TLBEHI) begin
             csr_tlbehi_vppn <= csr_wmask[`CSR_TLBEHI_VPPN] & csr_wval[`CSR_TLBEHI_VPPN] |
@@ -478,7 +478,7 @@ module csr(
             csr_tlbelo1_mat <= 2'b0;
             csr_tlbelo1_g   <= 1'b0;
             csr_tlbelo1_ppn <= 24'b0;
-        end else if (tlbrd_we) begin
+        end else if (tlbrd_we && w_tlb_e) begin
             csr_tlbelo0_v   <= w_tlb_v0;
             csr_tlbelo0_d   <= w_tlb_d0;
             csr_tlbelo0_plv <= w_tlb_plv0;
@@ -531,7 +531,7 @@ module csr(
     always @ (posedge clk) begin
         if (rst) begin
             csr_asid_asid <= 10'b0;
-        end else if (tlbrd_we) begin
+        end else if (tlbrd_we && w_tlb_e) begin
             csr_asid_asid <= w_tlb_asid;
         end else if (csr_we && csr_wnum == `CSR_ASID) begin
             csr_asid_asid <= csr_wmask[`CSR_ASID_ASID] & csr_wval[`CSR_ASID_ASID] |
@@ -576,6 +576,7 @@ module csr(
                       {32{csr_rnum == `CSR_TLBEHI}}  & csr_tlbehi_rval  |
                       {32{csr_rnum == `CSR_TLBELO0}} & csr_tlbelo0_rval |
                       {32{csr_rnum == `CSR_TLBELO1}} & csr_tlbelo1_rval |
+                      {32{csr_rnum == `CSR_ASID  }}  & csr_asid_rval    |
                       {32{csr_rnum == `CSR_TLBRENTRY}} & csr_tlbrentry_rval;
     assign exc_entry   = csr_eentry_rval;
     assign exc_retaddr = csr_era_rval;
@@ -584,8 +585,6 @@ module csr(
     /*
      *  output TLB entry
      */
-    assign r_tlb_index = csr_tlbidx_index;
-
     assign r_tlb_e    = ~csr_tlbidx_ne;
     assign r_tlb_ps   =  csr_tlbidx_ps;
     assign r_tlb_vppn =  csr_tlbehi_vppn;

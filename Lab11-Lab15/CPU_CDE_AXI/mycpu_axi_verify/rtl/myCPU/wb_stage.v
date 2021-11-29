@@ -32,12 +32,25 @@ module wb_stage(
 
     output                          refetch_flush,
 
-    output [`WS_CSR_BLK_BUS_WD-1:0] ws_csr_blk_bus
+    output [`WS_CSR_BLK_BUS_WD-1:0] ws_csr_blk_bus,
+
+    // for tlbrd
+    output [ 3:0] r_index,
+    output        tlbrd_we,
+    input  [ 3:0] csr_tlbidx_index,
+
+    // for tlbwr && tlbfill
+    output        tlbwr_we,
+    output        tlbfill_we,
+    output [ 3:0] w_index,
+    output        we,
+
+    // for tlbsrch
+    output        tlbsrch_we,
+    output        tlbsrch_hit,
+    output [ 3:0] tlbsrch_hit_index
 );
 
-
-reg        wb_exc_r;
-reg        wb_ertn_r;
 reg         wb_flush_r;
 
 reg         ws_valid;
@@ -57,7 +70,24 @@ wire [31:0] ws_final_result;
 wire [31:0] ws_res_from_ms;
 wire [31:0] ws_pc;
 
-assign {ws_csr_we      ,
+wire        ws_refetch_flg;
+wire        ws_inst_tlbsrch;
+wire        ws_inst_tlbrd;
+wire        ws_inst_tlbwr;
+wire        ws_inst_tlbfill;
+wire        ws_tlbsrch_hit;
+wire [ 3:0] ws_tlbsrch_hit_index;
+
+reg  [ 3:0] random;
+
+assign {ws_refetch_flg ,
+        ws_inst_tlbsrch,
+        ws_inst_tlbrd  ,
+        ws_inst_tlbwr  ,
+        ws_inst_tlbfill,
+        ws_tlbsrch_hit ,
+        ws_tlbsrch_hit_index,
+        ws_csr_we      ,
         ws_csr_wnum    ,
         ws_csr_wmask   ,
         ws_csr_wdata   ,
@@ -96,7 +126,7 @@ end
 always @(posedge clk) begin
     if (reset) begin
         wb_flush_r <= 1'b0;
-    end else if (wb_exc | ertn_flush | refetch_flush) begin
+    end else if (wb_exc | ertn_flush) begin
         wb_flush_r <= 1'b1;
     end else if (ms_to_ws_valid & ws_allowin) begin
         wb_flush_r <= 1'b0;
@@ -105,7 +135,7 @@ end
 
 assign ws_final_result = ws_res_from_ms;
 
-assign rf_we    = ws_gr_we & ws_valid & ~(wb_exc | ertn_flush | refetch_flush | wb_flush_r);
+assign rf_we    = ws_gr_we & ws_valid & ~(wb_exc | ertn_flush | wb_flush_r);
 assign rf_waddr = ws_dest;
 assign rf_wdata = ws_final_result;
 
@@ -133,6 +163,29 @@ assign wb_badvaddr = ws_final_result;
 
 assign ertn_flush = ws_inst_ertn & ws_valid;
 
+assign refetch_flush = ws_refetch_flg & ws_valid;
+
 assign ws_csr_blk_bus = {ws_csr_we & ws_valid, ws_inst_ertn & ws_valid, ws_csr_wnum};
+
+// X_{n+1} = (5 * X_n + 13) mod 16
+always @ (posedge clk) begin
+    if (reset) begin
+        random <= 4'd1;
+    end else begin
+        random <= {random[1:0], 2'b0} + random + 4'd13;
+    end
+end
+
+assign r_index = csr_tlbidx_index;
+assign tlbrd_we = ws_inst_tlbrd;
+
+assign tlbwr_we   = ws_inst_tlbwr;
+assign tlbfill_we = ws_inst_tlbfill;
+assign w_index = tlbwr_we ? csr_tlbidx_index : random;
+assign we = tlbwr_we | tlbfill_we;
+
+assign tlbsrch_we = ws_inst_tlbsrch;
+assign tlbsrch_hit = ws_tlbsrch_hit;
+assign tlbsrch_hit_index = ws_tlbsrch_hit_index;
 
 endmodule

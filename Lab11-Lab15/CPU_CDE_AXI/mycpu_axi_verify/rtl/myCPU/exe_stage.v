@@ -31,7 +31,16 @@ module exe_stage(
     input                           wb_flush,
     input                           ms_to_es_ls_cancel,
 
-    output [`ES_CSR_BLK_BUS_WD-1:0] es_csr_blk_bus
+    output [`ES_CSR_BLK_BUS_WD-1:0] es_csr_blk_bus,
+
+    output [19:0] s1_va_highbits,
+    output [ 9:0] s1_asid,
+
+    output        invtlb_valid,
+    output [ 4:0] invtlb_op,
+
+    input  [ 9:0] csr_asid_asid,
+    input  [18:0] csr_tlbehi_vppn
 );
 
 
@@ -81,9 +90,24 @@ wire ls_word;
 wire es_rdcn_en;
 wire es_rdcn_sel;
 
+wire es_refetch_flg;
+wire es_inst_tlbsrch;
+wire es_inst_tlbrd;
+wire es_inst_tlbwr;
+wire es_inst_tlbfill;
+wire es_inst_invtlb;
+wire [4:0] es_invtlb_op;
+
 assign es_res_from_div = is_div;
 
-assign {es_rdcn_en     ,
+assign {es_refetch_flg ,
+        es_inst_tlbsrch,
+        es_inst_tlbrd  ,
+        es_inst_tlbwr  ,
+        es_inst_tlbfill,
+        es_inst_invtlb ,
+        es_invtlb_op   ,
+        es_rdcn_en     ,
         es_rdcn_sel    ,
         es_csr_we      ,
         es_csr_re      ,
@@ -113,7 +137,12 @@ wire [31:0] es_alu_src2   ;
 wire [31:0] es_alu_result ;
 
 //assign es_res_from_mem = es_load_op;
-assign es_to_ms_bus = {es_rdcn_en     ,
+assign es_to_ms_bus = {es_refetch_flg ,
+                       es_inst_tlbsrch,
+                       es_inst_tlbrd  ,
+                       es_inst_tlbwr  ,
+                       es_inst_tlbfill,
+                       es_rdcn_en     ,
                        es_rdcn_sel    ,
                        es_csr_we      ,
                        es_csr_wnum    ,
@@ -153,7 +182,7 @@ end
 
 always @(posedge clk) begin
     if (reset) begin
-        flush_r <= 1'b0;
+        wb_flush_r <= 1'b0;
     end else if (wb_flush) begin
         wb_flush_r <= 1'b1;
     end else if (ds_to_es_valid & es_allowin)begin
@@ -223,7 +252,11 @@ assign es_exc_flgs[`EXC_FLG_INE ] = ds_to_es_exc_flgs[`EXC_FLG_INE ];
 assign es_exc_flgs[`EXC_FLG_INT ] = ds_to_es_exc_flgs[`EXC_FLG_INT ];
 assign es_exc_flgs[`EXC_FLG_SYS ] = ds_to_es_exc_flgs[`EXC_FLG_SYS ];
 
-assign es_csr_blk_bus = {es_csr_we & es_valid, es_inst_ertn & es_valid, es_csr_wnum};
+assign es_csr_blk_bus = {es_csr_we & es_valid, es_inst_ertn & es_valid, es_inst_tlbrd & es_valid, es_csr_wnum};
 
+assign s1_va_highbits = invtlb_valid ? es_rkd_value[31:12] : {csr_tlbehi_vppn, 1'b0};
+assign s1_asid        = invtlb_valid ?  es_rj_value[ 9: 0] : csr_asid_asid;
+assign invtlb_valid = es_inst_invtlb;
+assign invtlb_op    = es_invtlb_op;
 
 endmodule
