@@ -30,12 +30,15 @@ module wb_stage(
 
     output                          ertn_flush,
 
+    output                          refetch_flush,
+
     output [`WS_CSR_BLK_BUS_WD-1:0] ws_csr_blk_bus
 );
 
 
 reg        wb_exc_r;
 reg        wb_ertn_r;
+reg         wb_flush_r;
 
 reg         ws_valid;
 wire        ws_ready_go;
@@ -92,21 +95,17 @@ end
 
 always @(posedge clk) begin
     if (reset) begin
-        wb_exc_r <= 1'b0;
-        wb_ertn_r <= 1'b0;
-    end else if (wb_exc) begin
-        wb_exc_r <= 1'b1;
-    end else if (ertn_flush) begin
-        wb_ertn_r <= 1'b1;
-    end else if (ms_to_ws_valid & ws_allowin)begin
-        wb_exc_r <= 1'b0;
-        wb_ertn_r <= 1'b0;
+        wb_flush_r <= 1'b0;
+    end else if (wb_exc | ertn_flush | refetch_flush) begin
+        wb_flush_r <= 1'b1;
+    end else if (ms_to_ws_valid & ws_allowin) begin
+        wb_flush_r <= 1'b0;
     end
 end
 
 assign ws_final_result = ws_res_from_ms;
 
-assign rf_we    = ws_gr_we & ws_valid & ~(wb_exc | ertn_flush | wb_ertn_r | wb_exc_r);
+assign rf_we    = ws_gr_we & ws_valid & ~(wb_exc | ertn_flush | refetch_flush | wb_flush_r);
 assign rf_waddr = ws_dest;
 assign rf_wdata = ws_final_result;
 

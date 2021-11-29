@@ -26,6 +26,7 @@ module id_stage(
     input csr_has_int,
     input wb_exc,
     input wb_ertn,
+    input wb_flush,
     output [13:0] csr_rnum,
     input  [31:0] csr_rval,
 
@@ -37,6 +38,7 @@ module id_stage(
 
 reg        wb_exc_r;
 reg        wb_ertn_r;
+reg             wb_flush_r;
 
 wire            ds_ready_go;
 reg             ds_valid;
@@ -296,7 +298,7 @@ assign ds_to_es_bus = {
 // with blk
 assign ds_ready_go    = ~(es_blk | ms_blk | csr_blk);
 assign ds_allowin     = !ds_valid || ds_ready_go && es_allowin;
-assign ds_to_es_valid = ds_valid & ds_ready_go && ~(wb_ertn || wb_exc || wb_ertn_r || wb_exc_r);
+assign ds_to_es_valid = ds_valid & ds_ready_go && ~(wb_flush | wb_flush_r);
 
 always @(posedge clk) begin
     if (reset) begin
@@ -317,15 +319,11 @@ end
 
 always @(posedge clk) begin
     if (reset) begin
-        wb_exc_r <= 1'b0;
-        wb_ertn_r <= 1'b0;
-    end else if (wb_exc) begin
-        wb_exc_r <= 1'b1;
-    end else if (wb_ertn) begin
-        wb_ertn_r <= 1'b1;
-    end else if (fs_to_ds_valid & ds_allowin)begin
-        wb_exc_r <= 1'b0;
-        wb_ertn_r <= 1'b0;
+        wb_flush_r <= 1'b0;
+    end else if (wb_flush) begin
+        wb_flush_r <= 1'b1;
+    end else if (fs_to_ds_valid & ds_allowin) begin
+        wb_flush_r <= 1'b0;
     end
 end
 

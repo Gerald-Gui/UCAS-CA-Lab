@@ -18,14 +18,11 @@ module if_stage(
     input                           inst_sram_data_ok,
     input  [31:0]                   inst_sram_rdata,
 
-    // exc && int
-    input                           wb_exc,
-    input                           wb_ertn
+    // exc && int && refetch
+    input                           wb_flush
 );
 
-
-    reg        wb_exc_r;
-    reg        wb_ertn_r;
+    reg         wb_flush_r;
 
     reg         fs_valid;
     wire        fs_ready_go;
@@ -48,7 +45,7 @@ module if_stage(
 
     wire fs_inst_cancel;
 
-    assign fs_inst_cancel = (wb_exc || wb_ertn || wb_ertn_r || wb_exc_r);
+    assign fs_inst_cancel = (wb_flush || wb_flush_r);
 
     // IF stage
     assign fs_ready_go    = fs_inst_valid || (fs_valid && inst_sram_data_ok);
@@ -98,15 +95,11 @@ module if_stage(
 
     always @(posedge clk) begin
         if (reset) begin
-            wb_exc_r <= 1'b0;
-            wb_ertn_r <= 1'b0;
-        end else if (wb_exc) begin
-            wb_exc_r <= 1'b1;
-        end else if (wb_ertn) begin
-            wb_ertn_r <= 1'b1;
-        end else if (pfs_to_fs_valid && fs_allowin)begin
-            wb_exc_r <= 1'b0;
-            wb_ertn_r <= 1'b0;
+            wb_flush_r <= 1'b0;
+        end else if (wb_flush) begin
+            wb_flush_r <= 1'b1;
+        end else if (pfs_to_fs_valid && fs_allowin) begin
+            wb_flush_r <= 1'b0;
         end 
     end
 

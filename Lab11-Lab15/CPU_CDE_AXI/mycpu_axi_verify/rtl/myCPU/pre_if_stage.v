@@ -19,11 +19,9 @@ module pre_if_stage (
     output [31:0]                    inst_sram_wdata,
     input                            inst_sram_addr_ok,
     input                            inst_sram_data_ok,
-    // exc && int
-    input                            wb_exc,
-    input                            wb_ertn,
-    input  [31:0]                    exc_entry,
-    input  [31:0]                    exc_retaddr
+    // exc && int && refetch
+    input                            flush,
+    input  [31:0]                    flush_target
 );
 
     //control signals
@@ -47,13 +45,13 @@ module pre_if_stage (
 
     //reflush
     reg        pfs_reflush;
-    reg        wb_exc_r;
-    reg        wb_ertn_r;
-    reg [31:0] exc_entry_r;
-    reg [31:0] exc_retaddr_r;
+
+    reg        flush_r;
+    reg [31:0] flush_target_r;
 
     //control signals
-    assign pfs_ready_go = (inst_sram_addr_ok && inst_sram_req) && ~(((wb_ertn_r || wb_exc_r || br_stall_r) && pfs_reflush) || wb_exc || wb_ertn || br_stall);
+    assign pfs_ready_go = (inst_sram_addr_ok && inst_sram_req) && ~(((
+        flush_r || br_stall_r) && pfs_reflush) || flush || br_stall);
     assign pfs_to_fs_valid = pfs_valid && pfs_ready_go;
     always @(posedge clk) begin
         if (reset  ) begin
@@ -93,39 +91,30 @@ module pre_if_stage (
     
     always @(posedge clk) begin
         if (reset) begin
-            wb_exc_r <= 1'b0;
-            wb_ertn_r <= 1'b0;
-            exc_entry_r <= 32'b0;
-            exc_retaddr_r <= 32'b0;
-        end else if (wb_exc) begin
-            wb_exc_r <= 1'b1;
-            exc_entry_r <= exc_entry;
-        end else if (wb_ertn) begin
-            wb_ertn_r <= 1'b1;
-            exc_retaddr_r <= exc_retaddr;
-        end else if (inst_sram_addr_ok && ~pfs_reflush && fs_allowin)begin
-            wb_exc_r <= 1'b0;
-            wb_ertn_r <= 1'b0;
-            exc_entry_r <= 32'b0;
-            exc_retaddr_r <= 32'b0;
+            flush_r <= 1'b0;
+            flush_target_r <= 32'b0;
+        end else if (flush) begin
+            flush_r <= 1'b1;
+            flush_target_r <= flush_target;
+        end else if (inst_sram_addr_ok && ~pfs_reflush && fs_allowin) begin
+            flush_r <= 1'b0;
+            flush_target_r <= 32'b0;
         end
 
-        if(reset) begin
+        if (reset) begin
             pfs_reflush <= 1'b0;
-        end else if(inst_sram_req && (wb_exc | wb_ertn | (br_stall && inst_sram_addr_ok))) begin
+        end else if (inst_sram_req && (flush | (br_stall && inst_sram_addr_ok))) begin
             pfs_reflush <= 1'b1;
-        end else if(inst_sram_data_ok) begin
+        end else if (inst_sram_data_ok) begin
             pfs_reflush <= 1'b0;
         end
     end
     
     //pc
     assign seq_pc = pfs_pc + 32'h4;
-    assign nextpc   = wb_exc   ? exc_entry   :
-                      wb_exc_r   ? exc_entry_r   :
-                      wb_ertn  ? exc_retaddr :
-                      wb_ertn_r  ? exc_retaddr_r :
-                      br_taken_r ? br_target_r   :
+    assign nextpc   = flush      ? flush_target   :
+                      flush_r    ? flush_target_r :
+                      br_taken_r ? br_target_r    :
                       (br_taken && !br_stall) ? br_target   :
                                  seq_pc;
     always @(posedge clk ) begin
