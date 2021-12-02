@@ -89,6 +89,15 @@
     // TLBRENTRY
     `define CSR_TLBRENTRY_PA    31:6
 
+    // lab15 csrs
+    // DMW0 && DMW1
+    `define CSR_DMW_PLV0    0
+    `define CSR_DMW_PLV3    3
+    `define CSR_DMW_MAT     5:4
+    `define CSR_DMW_PSEG    27:25
+    `define CSR_DMW_VSEG    31:29
+    
+
     // exception codes
     // ECODE: 6 bits -> 21:16 in ESTAT
     // ESUBCODE: 9 bits -> 30:22 in ESTAT
@@ -104,6 +113,12 @@
     `define ECODE_INE   6'h0D
     // lab14
     `define ECODE_TLBR  6'h3F
+    // lab15
+    `define ECODE_PIL   6'h01
+    `define ECODE_PIS   6'h02
+    `define ECODE_PIF   6'h03
+    `define ECODE_PME   6'h04
+    `define ECODE_PPI   6'h07
 
     // CSR write masks
     `define CSR_MASK_CRMD   32'h0000_01ff
@@ -124,4 +139,6 @@
     `define CSR_MASK_TLBELO 32'hffff_ff7f
     `define CSR_MASK_ASID   32'h0000_03ff
     `define CSR_MASK_TLBRENTRY 32'hffff_ffc0
+    // lab15
+    `define CSR_MASK_DMW    32'hee00_0039
 `endif

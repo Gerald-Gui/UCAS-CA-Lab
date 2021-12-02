@@ -28,6 +28,18 @@ module csr(
     output reg [18:0] csr_tlbehi_vppn,
     output reg [ 3:0] csr_tlbidx_index,
 
+    output reg        csr_dmw0_plv0,
+    output reg        csr_dmw0_plv3,
+    output reg [ 1:0] csr_dmw0_mat,
+    output reg [ 2:0] csr_dmw0_pseg,
+    output reg [ 2:0] csr_dmw0_vseg,
+
+    output reg        csr_dmw1_plv0,
+    output reg        csr_dmw1_plv3,
+    output reg [ 1:0] csr_dmw1_mat,
+    output reg [ 2:0] csr_dmw1_pseg,
+    output reg [ 2:0] csr_dmw1_vseg,
+
     input         tlbsrch_we,
     input         tlbsrch_hit,
     input         tlbrd_we,
@@ -146,6 +158,9 @@ module csr(
     reg  [25:0] csr_tlbrentry_pa;
     wire [31:0] csr_tlbrentry_rval;
 
+    wire [31:0] csr_dmw0_rval;
+    wire [31:0] csr_dmw1_rval;
+
     /*
      *  CRMD
      */
@@ -242,7 +257,6 @@ module csr(
                                 ~csr_wmask[`CSR_ESTAT_IS10] & csr_estat_is[1:0];
         end
 
-        // TODO(lab9): 
         // 9:2 hardware int
         csr_estat_is[9:2] <= 8'b0;
         // 10  undefined -> reserve to 0
@@ -555,6 +569,42 @@ module csr(
     assign csr_tlbrentry_rval = {csr_tlbrentry_pa, 6'b0};
 
     /*
+     *  DMW
+     */
+    always @ (posedge clk) begin
+        if (csr_we) begin
+            if (csr_wnum == `CSR_DMW0) begin
+                csr_dmw0_plv0 <= csr_wmask[`CSR_DMW_PLV0] & csr_wval[`CSR_DMW_PLV0] |
+                                ~csr_wmask[`CSR_DMW_PLV0] & csr_dmw0_plv0;
+                csr_dmw0_plv3 <= csr_wmask[`CSR_DMW_PLV3] & csr_wval[`CSR_DMW_PLV3] |
+                                ~csr_wmask[`CSR_DMW_PLV3] & csr_dmw0_plv3;
+                csr_dmw0_mat  <= csr_wmask[`CSR_DMW_MAT] & csr_wval[`CSR_DMW_MAT] |
+                                ~csr_wmask[`CSR_DMW_MAT] & csr_dmw0_mat;
+                csr_dmw0_pseg <= csr_wmask[`CSR_DMW_PSEG] & csr_wval[`CSR_DMW_PSEG] |
+                                ~csr_wmask[`CSR_DMW_PSEG] & csr_dmw0_pseg;
+                csr_dmw0_vseg <= csr_wmask[`CSR_DMW_VSEG] & csr_wval[`CSR_DMW_VSEG] |
+                                ~csr_wmask[`CSR_DMW_VSEG] & csr_dmw0_vseg;
+            end else if (csr_wnum == `CSR_DMW1) begin
+                csr_dmw1_plv0 <= csr_wmask[`CSR_DMW_PLV0] & csr_wval[`CSR_DMW_PLV0] |
+                                ~csr_wmask[`CSR_DMW_PLV0] & csr_dmw1_plv0;
+                csr_dmw1_plv3 <= csr_wmask[`CSR_DMW_PLV3] & csr_wval[`CSR_DMW_PLV3] |
+                                ~csr_wmask[`CSR_DMW_PLV3] & csr_dmw1_plv3;
+                csr_dmw1_mat  <= csr_wmask[`CSR_DMW_MAT] & csr_wval[`CSR_DMW_MAT] |
+                                ~csr_wmask[`CSR_DMW_MAT] & csr_dmw1_mat;
+                csr_dmw1_pseg <= csr_wmask[`CSR_DMW_PSEG] & csr_wval[`CSR_DMW_PSEG] |
+                                ~csr_wmask[`CSR_DMW_PSEG] & csr_dmw1_pseg;
+                csr_dmw1_vseg <= csr_wmask[`CSR_DMW_VSEG] & csr_wval[`CSR_DMW_VSEG] |
+                                ~csr_wmask[`CSR_DMW_VSEG] & csr_dmw1_vseg;
+            end
+        end
+    end
+    assign csr_dmw0_rval = {csr_dmw0_vseg, 1'b0,
+                            csr_dmw0_pseg, 1'b0,
+                            16'b0,
+                            2'b0, csr_dmw0_mat,
+                            csr_dmw0_plv3, 2'b0, csr_dmw0_plv0};
+
+    /*
      * CSR output logic
      */
     assign csr_rval = {32{csr_rnum == `CSR_CRMD  }}  & csr_crmd_rval    |
@@ -577,8 +627,9 @@ module csr(
                       {32{csr_rnum == `CSR_TLBELO0}} & csr_tlbelo0_rval |
                       {32{csr_rnum == `CSR_TLBELO1}} & csr_tlbelo1_rval |
                       {32{csr_rnum == `CSR_ASID  }}  & csr_asid_rval    |
-                      {32{csr_rnum == `CSR_TLBRENTRY}} & csr_tlbrentry_rval;
-    assign exc_entry   = csr_eentry_rval;
+                      {32{csr_rnum == `CSR_TLBRENTRY}} & csr_tlbrentry_rval |
+                      {32{csr_rnum == `CSR_DMW0  }}  & csr_dmw0_rval;
+    assign exc_entry   = wb_exc && wb_ecode == `ECODE_TLBR ? csr_tlbrentry_rval : csr_eentry_rval;
     assign exc_retaddr = csr_era_rval;
     assign has_int     = (|(csr_estat_is & csr_ecfg_lie)) & csr_crmd_ie;
 
