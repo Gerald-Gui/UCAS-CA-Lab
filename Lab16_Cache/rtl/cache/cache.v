@@ -65,8 +65,8 @@ module cache(
     wire [19:0] tag_r;
     wire [ 3:0] offset_r;
 
+    // cache tables
     // RAM ports
-
     wire        vtag_we    [1:0];
     wire [ 7:0] vtag_addr  [1:0];
     wire [20:0] vtag_wdata [1:0];   // 20:20 v; 19:0 tag
@@ -77,7 +77,12 @@ module cache(
     wire [31:0] data_bank_wdata [1:0][3:0];
     wire [31:0] data_bank_rdata [1:0][3:0];
 
+    // dirty array
+    reg  [255:0] dirty_arr [1:0];
 
+    // hits
+    wire [1:0] way_hit;
+    wire cache_hit;
 
     wire hit_write; 
 
@@ -99,6 +104,12 @@ module cache(
                 end else begin
                     nxt_state = IDLE;
                 end
+            LOOKUP:
+                if (cache_hit) begin
+                    nxt_state = IDLE;
+                end else begin
+                    nxt_state = MISS;
+                end
             default:nxt_state = IDLE;
         endcase
     end
@@ -115,6 +126,14 @@ module cache(
         end
     end
     assign {op_r, wstrb_r, wdata_r, index_r, tag_r, offset_r} = req_buf;
+    
+    assign vtag_addr[0] = index;
+    assign vtag_addr[1] = index;
+    
+    // LOOKUP
+    assign way_hit[0] = vtag_rdata[0][20] && (vtag_rdata[0][19:0] == tag_r);
+    assign way_hit[1] = vtag_rdata[1][20] && (vtag_rdata[1][19:0] == tag_r);
+    assign cache_hit = |way_hit;
 
     // write buffer state machine
     always @ (posedge clk_g) begin
