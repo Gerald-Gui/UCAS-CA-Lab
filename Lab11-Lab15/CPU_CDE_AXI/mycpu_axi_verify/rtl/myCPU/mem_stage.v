@@ -25,10 +25,7 @@ module mem_stage(
 
     input                           wb_flush,
     output                          ms_to_es_ls_cancel,
-    output [`MS_CSR_BLK_BUS_WD-1:0] ms_csr_blk_bus,
-
-    input         s1_found,
-    input  [ 3:0] s1_index
+    output [`MS_CSR_BLK_BUS_WD-1:0] ms_csr_blk_bus
 );
 
 reg         wb_flush_r;
@@ -80,8 +77,8 @@ wire        ms_inst_tlbrd;
 wire        ms_inst_tlbwr;
 wire        ms_inst_tlbfill;
 
-wire        ms_tlbsrch_hit = s1_found;
-wire [ 3:0] ms_tlbsrch_hit_index = s1_index;
+wire        ms_tlbsrch_hit;
+wire [ 3:0] ms_tlbsrch_hit_index;
 
 reg [63:0] stable_cnter;
 
@@ -94,6 +91,8 @@ assign {ms_refetch_flg ,
         ms_inst_tlbrd  ,
         ms_inst_tlbwr  ,
         ms_inst_tlbfill,
+        ms_tlbsrch_hit ,
+        ms_tlbsrch_hit_index,
         ms_rdcn_en     ,
         ms_rdcn_sel    ,
         ms_csr_we      ,

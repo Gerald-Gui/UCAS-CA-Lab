@@ -33,14 +33,40 @@ module exe_stage(
 
     output [`ES_CSR_BLK_BUS_WD-1:0] es_csr_blk_bus,
 
+    input         csr_crmd_da,
+    input         csr_crmd_pg,
+    input  [ 1:0] csr_crmd_plv,
+
     output [19:0] s1_va_highbits,
     output [ 9:0] s1_asid,
+    input         s1_found,
+    input  [ 3:0] s1_index,
+    input  [19:0] s1_ppn,
+    input  [ 5:0] s1_ps,
+    input  [ 1:0] s1_plv,
+    input  [ 1:0] s1_mat,
+    input         s1_d,
+    input         s1_v,
 
     output        invtlb_valid,
     output [ 4:0] invtlb_op,
 
+    // csr
     input  [ 9:0] csr_asid_asid,
-    input  [18:0] csr_tlbehi_vppn
+    input  [18:0] csr_tlbehi_vppn,
+
+    // dmw
+    input        csr_dmw0_plv0,
+    input        csr_dmw0_plv3,
+    input [ 1:0] csr_dmw0_mat,
+    input [ 2:0] csr_dmw0_pseg,
+    input [ 2:0] csr_dmw0_vseg,
+
+    input        csr_dmw1_plv0,
+    input        csr_dmw1_plv3,
+    input [ 1:0] csr_dmw1_mat,
+    input [ 2:0] csr_dmw1_pseg,
+    input [ 2:0] csr_dmw1_vseg
 );
 
 
@@ -98,6 +124,20 @@ wire es_inst_tlbfill;
 wire es_inst_invtlb;
 wire [4:0] es_invtlb_op;
 
+wire        es_tlbsrch_hit = s1_found;
+wire [ 3:0] es_tlbsrch_hit_index = s1_index;
+
+// v-p addr
+wire es_da;
+wire es_dmw0_hit;
+wire es_dmw1_hit;
+wire es_tlb_trans;
+wire [31:0] es_dmw0_paddr;
+wire [31:0] es_dmw1_paddr;
+wire [31:0] es_tlb_paddr;
+
+wire es_inst_ls;
+
 assign es_res_from_div = is_div;
 
 assign {es_refetch_flg ,
@@ -142,6 +182,8 @@ assign es_to_ms_bus = {es_refetch_flg ,
                        es_inst_tlbrd  ,
                        es_inst_tlbwr  ,
                        es_inst_tlbfill,
+                       es_tlbsrch_hit ,
+                       es_tlbsrch_hit_index,
                        es_rdcn_en     ,
                        es_rdcn_sel    ,
                        es_csr_we      ,
@@ -225,7 +267,11 @@ assign data_sram_wstrb = ~data_sram_wr   ? 4'h0                               :
                          es_store_op[1] ? (4'h3 << {es_alu_result[1], 1'b0}) : // h
                          es_store_op[0] ? 4'hf : 4'h0;                         // w
 
-assign data_sram_addr  = es_alu_result;
+// assign data_sram_addr  = es_alu_result;
+assign data_sram_addr  = es_da       ? es_alu_result :
+                         es_dmw0_hit ? es_dmw0_paddr :
+                         es_dmw1_hit ? es_dmw1_paddr :
+                                       es_tlb_paddr;
 assign data_sram_wdata = store_data;
 
 assign es_fwd_blk_bus = {
@@ -242,15 +288,42 @@ assign es_result = es_csr_re ? es_csr_rdata :
 assign ls_half = es_store_op[1] | es_load_op[3] | es_load_op[0];
 assign ls_word = es_store_op[0] | es_load_op[2];
 
-assign es_exc_flgs[`EXC_FLG_ALE ] = es_valid & ((|es_load_op) || es_mem_we) &
+// v-p addr
+assign es_da = csr_crmd_da & ~csr_crmd_pg;
+assign es_dmw0_hit = es_alu_result[31:29] == csr_dmw0_vseg &&
+                    (csr_crmd_plv == 2'd0 && csr_dmw0_plv0 ||
+                     csr_crmd_plv == 2'd3 && csr_dmw0_plv3);
+assign es_dmw1_hit = es_alu_result[31:29] == csr_dmw1_vseg &&
+                    (csr_crmd_plv == 2'd0 && csr_dmw1_plv0 ||
+                     csr_crmd_plv == 2'd3 && csr_dmw1_plv3);
+assign es_dmw0_paddr = {csr_dmw0_pseg, es_alu_result[28:0]};
+assign es_dmw1_paddr = {csr_dmw1_pseg, es_alu_result[28:0]};
+assign es_tlb_paddr = s1_ps == 6'd22 ? {s1_ppn[19:10], es_alu_result[21:0]} :
+                                       {s1_ppn, es_alu_result[11:0]};
+
+assign es_inst_ls = ((|es_load_op)) | es_mem_we;
+assign es_tlb_trans = ~es_da & ~es_dmw0_hit & ~es_dmw1_hit;
+
+assign es_exc_flgs[`EXC_FLG_ALE ] = es_inst_ls &
                                     (ls_half & es_alu_result[0] |
                                      ls_word & (|es_alu_result[1:0]));
+assign es_exc_flgs[`EXC_FLG_ADEM] = es_inst_ls & es_alu_result[31] & (csr_crmd_plv == 2'd0);
+assign es_exc_flgs[`EXC_FLG_TLBR_M] = es_inst_ls & es_tlb_trans & ~s1_found;
+assign es_exc_flgs[`EXC_FLG_PIL]  = ds_to_es_exc_flgs[`EXC_FLG_PIL] |
+                                    (|es_load_op) & es_tlb_trans & ~s1_v;
+assign es_exc_flgs[`EXC_FLG_PIS]  = ds_to_es_exc_flgs[`EXC_FLG_PIS] |
+                                    es_mem_we & es_tlb_trans & ~s1_v;
+assign es_exc_flgs[`EXC_FLG_PME]  = es_mem_we & es_tlb_trans & ~s1_d;
+assign es_exc_flgs[`EXC_FLG_PPE_M] = es_inst_ls & es_tlb_trans & (csr_crmd_plv > s1_plv);
 // other exc flgs from ds
 assign es_exc_flgs[`EXC_FLG_ADEF] = ds_to_es_exc_flgs[`EXC_FLG_ADEF];
 assign es_exc_flgs[`EXC_FLG_BRK ] = ds_to_es_exc_flgs[`EXC_FLG_BRK ];
 assign es_exc_flgs[`EXC_FLG_INE ] = ds_to_es_exc_flgs[`EXC_FLG_INE ];
 assign es_exc_flgs[`EXC_FLG_INT ] = ds_to_es_exc_flgs[`EXC_FLG_INT ];
 assign es_exc_flgs[`EXC_FLG_SYS ] = ds_to_es_exc_flgs[`EXC_FLG_SYS ];
+assign es_exc_flgs[`EXC_FLG_TLBR_F] = ds_to_es_exc_flgs[`EXC_FLG_TLBR_F];
+assign es_exc_flgs[`EXC_FLG_PPE_F] = ds_to_es_exc_flgs[`EXC_FLG_PPE_F];
+assign es_exc_flgs[`EXC_FLG_PIF ] = ds_to_es_exc_flgs[`EXC_FLG_PIF ];
 
 assign es_csr_blk_bus = {es_csr_we & es_valid, es_inst_ertn & es_valid, es_inst_tlbrd & es_valid, es_csr_wnum};
 

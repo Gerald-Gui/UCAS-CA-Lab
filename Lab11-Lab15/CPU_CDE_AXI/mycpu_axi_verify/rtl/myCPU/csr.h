@@ -118,7 +118,7 @@
     `define ECODE_PIS   6'h02
     `define ECODE_PIF   6'h03
     `define ECODE_PME   6'h04
-    `define ECODE_PPI   6'h07
+    `define ECODE_PPE   6'h07
 
     // CSR write masks
     `define CSR_MASK_CRMD   32'h0000_01ff

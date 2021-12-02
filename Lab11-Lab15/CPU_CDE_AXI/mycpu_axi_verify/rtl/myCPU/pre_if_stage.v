@@ -21,7 +21,34 @@ module pre_if_stage (
     input                            inst_sram_data_ok,
     // exc && int && refetch
     input                            flush,
-    input  [31:0]                    flush_target
+    input  [31:0]                    flush_target,
+    // csr
+    input         csr_crmd_da,
+    input         csr_crmd_pg,
+    input  [ 1:0] csr_crmd_plv,
+    // tlb
+    output [19:0] s0_va_highbits,
+    // s0_asid == csr.asid.asid
+    input         s0_found,
+    input  [ 3:0] s0_index,
+    input  [19:0] s0_ppn,
+    input  [ 5:0] s0_ps,
+    input  [ 1:0] s0_plv,
+    input  [ 1:0] s0_mat,
+    input         s0_d,
+    input         s0_v,
+    // DMW
+    input        csr_dmw0_plv0,
+    input        csr_dmw0_plv3,
+    input [ 1:0] csr_dmw0_mat,
+    input [ 2:0] csr_dmw0_pseg,
+    input [ 2:0] csr_dmw0_vseg,
+
+    input        csr_dmw1_plv0,
+    input        csr_dmw1_plv3,
+    input [ 1:0] csr_dmw1_mat,
+    input [ 2:0] csr_dmw1_pseg,
+    input [ 2:0] csr_dmw1_vseg
 );
 
     //control signals
@@ -49,6 +76,18 @@ module pre_if_stage (
     reg        flush_r;
     reg [31:0] flush_target_r;
 
+    // exc flgs
+    wire [`EXC_NUM - 1:0] pfs_exc_flgs;
+    
+    // v-p addr
+    wire pfs_da;
+    wire pfs_dmw0_hit;
+    wire pfs_dmw1_hit;
+    wire pfs_tlb_trans;
+    wire [31:0] pfs_dmw0_paddr;
+    wire [31:0] pfs_dmw1_paddr;
+    wire [31:0] pfs_tlb_paddr;
+
     //control signals
     assign pfs_ready_go = (inst_sram_addr_ok && inst_sram_req) && ~(((
         flush_r || br_stall_r) && pfs_reflush) || flush || br_stall);
@@ -62,14 +101,18 @@ module pre_if_stage (
     end
 
     //to fs
-    assign pfs_to_fs_bus = nextpc;
+    assign pfs_to_fs_bus = {pfs_exc_flgs, nextpc};
 
     assign inst_sram_req = pfs_valid && fs_allowin & ~(pfs_reflush);
     assign inst_sram_wr = 1'b0;
     assign inst_sram_size = 2'b10;
     assign inst_sram_wstrb = 4'b0;
     assign inst_sram_wdata = 32'b0;
-    assign inst_sram_addr = nextpc;
+    assign inst_sram_addr = pfs_da       ? nextpc         :
+                            pfs_dmw0_hit ? pfs_dmw0_paddr :
+                            pfs_dmw1_hit ? pfs_dmw1_paddr :
+                                           pfs_tlb_paddr;
+                            
     
     //br
     always @(posedge clk) begin
@@ -125,4 +168,34 @@ module pre_if_stage (
         end
     end
 
+    // v-p addr
+    assign s0_va_highbits = nextpc[31:12];
+    
+    assign pfs_da = csr_crmd_da & ~csr_crmd_pg;
+    assign pfs_dmw0_hit = nextpc[31:29] == csr_dmw0_vseg &&
+                          (csr_crmd_plv == 2'd0 && csr_dmw0_plv0 || csr_crmd_plv == 2'd3 && csr_dmw0_plv3);
+    assign pfs_dmw1_hit = nextpc[31:29] == csr_dmw1_vseg &&
+                          (csr_crmd_plv == 2'd0 && csr_dmw1_plv0 || csr_crmd_plv == 2'd3 && csr_dmw1_plv3);
+    assign pfs_dmw0_paddr = {csr_dmw0_pseg, nextpc[28:0]};
+    assign pfs_dmw1_paddr = {csr_dmw1_pseg, nextpc[28:0]};
+    assign pfs_tlb_paddr = s0_ps == 6'd22 ? {s0_ppn[19:10], nextpc[21:0]} :
+                                            {s0_ppn, nextpc[11:0]};
+
+    assign pfs_tlb_trans = ~pfs_da & ~pfs_dmw0_hit & ~pfs_dmw1_hit;
+    // exc flgs
+    assign pfs_exc_flgs[`EXC_FLG_SYS]  = 1'b0;
+    assign pfs_exc_flgs[`EXC_FLG_ADEF] = (|pfs_pc[1:0]) | (pfs_pc[31] & csr_crmd_plv == 2'd0);
+    assign pfs_exc_flgs[`EXC_FLG_ALE]  = 1'b0;
+    assign pfs_exc_flgs[`EXC_FLG_BRK]  = 1'b0;
+    assign pfs_exc_flgs[`EXC_FLG_INE]  = 1'b0;
+    assign pfs_exc_flgs[`EXC_FLG_INT]  = 1'b0;
+    assign pfs_exc_flgs[`EXC_FLG_ADEM] = 1'b0;
+    assign pfs_exc_flgs[`EXC_FLG_TLBR_F] = pfs_tlb_trans & ~s0_found;
+    assign pfs_exc_flgs[`EXC_FLG_TLBR_M] = 1'b0;
+    assign pfs_exc_flgs[`EXC_FLG_PIL]  = 1'b0;
+    assign pfs_exc_flgs[`EXC_FLG_PIS]  = 1'b0;
+    assign pfs_exc_flgs[`EXC_FLG_PIF]  = pfs_tlb_trans & ~s0_v;
+    assign pfs_exc_flgs[`EXC_FLG_PME]  = 1'b0;
+    assign pfs_exc_flgs[`EXC_FLG_PPE_F] = pfs_tlb_trans & (csr_crmd_plv > s0_plv);
+    assign pfs_exc_flgs[`EXC_FLG_PPE_M] = 1'b0;
 endmodule

@@ -27,13 +27,14 @@ module if_stage(
     reg         fs_valid;
     wire        fs_ready_go;
 
+    wire [`EXC_NUM - 1:0] fs_exc_flgs;
+
     wire [31                   :0] pfs_pc;
     reg  [`PFS_TO_FS_BUS_WD - 1:0] pfs_to_fs_bus_r;
-    assign pfs_pc = pfs_to_fs_bus_r;
+    assign {fs_exc_flgs, pfs_pc} = pfs_to_fs_bus_r;
 
     wire [31:0] fs_inst;
-    wire  [31:0] fs_pc;
-    wire [`EXC_NUM - 1:0] fs_exc_flgs;
+    wire [31:0] fs_pc;
     assign fs_to_ds_bus = {
                         fs_exc_flgs,
                         fs_inst ,
@@ -105,13 +106,5 @@ module if_stage(
 
     assign fs_pc = pfs_pc;
     assign fs_inst = fs_inst_valid ? fs_inst_buff : inst_sram_rdata;
-
-    assign fs_exc_flgs[`EXC_FLG_ADEF] = |fs_pc[1:0];
-    // init other exc to 0 by default
-    assign fs_exc_flgs[`EXC_FLG_SYS]  = 1'b0;
-    assign fs_exc_flgs[`EXC_FLG_ALE]  = 1'b0;
-    assign fs_exc_flgs[`EXC_FLG_BRK]  = 1'b0;
-    assign fs_exc_flgs[`EXC_FLG_INE]  = 1'b0;
-    assign fs_exc_flgs[`EXC_FLG_INT]  = 1'b0;
 
 endmodule

@@ -586,6 +586,15 @@ assign ds_exc_flgs[`EXC_FLG_BRK]  = inst_break;
 // other exc flgs from fs
 assign ds_exc_flgs[`EXC_FLG_ALE]  = fs_to_ds_exc_flgs[`EXC_FLG_ALE];
 assign ds_exc_flgs[`EXC_FLG_ADEF] = fs_to_ds_exc_flgs[`EXC_FLG_ADEF];
+assign ds_exc_flgs[`EXC_FLG_ADEM] = fs_to_ds_exc_flgs[`EXC_FLG_ADEM];
+assign ds_exc_flgs[`EXC_FLG_TLBR_F] = fs_to_ds_exc_flgs[`EXC_FLG_TLBR_F];
+assign ds_exc_flgs[`EXC_FLG_TLBR_M] = fs_to_ds_exc_flgs[`EXC_FLG_TLBR_M];
+assign ds_exc_flgs[`EXC_FLG_PIL]  = fs_to_ds_exc_flgs[`EXC_FLG_PIL];
+assign ds_exc_flgs[`EXC_FLG_PIS]  = fs_to_ds_exc_flgs[`EXC_FLG_PIS];
+assign ds_exc_flgs[`EXC_FLG_PIF]  = fs_to_ds_exc_flgs[`EXC_FLG_PIF];
+assign ds_exc_flgs[`EXC_FLG_PME]  = fs_to_ds_exc_flgs[`EXC_FLG_PME];
+assign ds_exc_flgs[`EXC_FLG_PPE_F] = fs_to_ds_exc_flgs[`EXC_FLG_PPE_F];
+assign ds_exc_flgs[`EXC_FLG_PPE_M] = fs_to_ds_exc_flgs[`EXC_FLG_PPE_M];
 
 // csr insts
 assign ds_csr_we    = inst_csrwr | inst_csrxchg;
@@ -613,7 +622,9 @@ assign csr_num_mask = {32{ds_csr_wnum == `CSR_CRMD  }} & `CSR_MASK_CRMD   |
                           ds_csr_wnum == `CSR_TLBELO1}}& `CSR_MASK_TLBELO |
                       {32{ds_csr_wnum == `CSR_TLBEHI}} & `CSR_MASK_TLBEHI |
                       {32{ds_csr_wnum == `CSR_ASID  }} & `CSR_MASK_ASID   |
-                      {32{ds_csr_wnum == `CSR_TLBRENTRY}} & `CSR_MASK_TLBRENTRY;
+                      {32{ds_csr_wnum == `CSR_TLBRENTRY}} & `CSR_MASK_TLBRENTRY |
+                      {32{ds_csr_wnum == `CSR_DMW0  ||
+                          ds_csr_wnum == `CSR_DMW1  }} & `CSR_MASK_DMW;
 assign ds_csr_wmask = inst_csrxchg ? rj_value : csr_num_mask;
 
 assign csr_rnum = inst_rdcntid_w ? `CSR_TID : ds_inst[23:10];
@@ -638,8 +649,8 @@ assign ws_csr_blk = ws_csr_we &&  csr_rnum == ws_csr_wnum && ws_csr_wnum != 0 ||
 
 // TLB refetch flg and invtlb op decode
 assign ds_refetch_flg = inst_tlbfill || inst_tlbwr || inst_tlbrd || inst_invtlb ||
-                        ds_csr_we && (ds_csr_wnum == `CSR_CRMD || ds_csr_wnum == `CSR_ASID);
-                        // TODO: ds_csr_wnum == DMW0/1
+                        ds_csr_we && (ds_csr_wnum == `CSR_CRMD || ds_csr_wnum == `CSR_ASID ||
+                                      ds_csr_wnum == `CSR_DMW0 || ds_csr_wnum == `CSR_DMW1);
 assign invtlb_op = rd;
 
 endmodule

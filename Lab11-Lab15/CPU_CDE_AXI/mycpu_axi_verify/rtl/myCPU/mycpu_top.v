@@ -115,9 +115,27 @@ wire        wb_refetch;
 wire        wb_flush;
 wire [31:0] wb_flush_target;
 
+wire [ 1:0] csr_crmd_plv;
+wire        csr_crmd_da;
+wire        csr_crmd_pg;
+wire [ 1:0] csr_crmd_datf;
+wire [ 1:0] csr_crmd_datm;
+
 wire [ 9:0] csr_asid_asid;
 wire [18:0] csr_tlbehi_vppn;
 wire [ 3:0] csr_tlbidx_index;
+
+wire        csr_dmw0_plv0;
+wire        csr_dmw0_plv3;
+wire [ 1:0] csr_dmw0_mat;
+wire [ 2:0] csr_dmw0_pseg;
+wire [ 2:0] csr_dmw0_vseg;
+
+wire        csr_dmw1_plv0;
+wire        csr_dmw1_plv3;
+wire [ 1:0] csr_dmw1_mat;
+wire [ 2:0] csr_dmw1_pseg;
+wire [ 2:0] csr_dmw1_vseg;
 
 wire tlbrd_we;
 wire tlbsrch_we;
@@ -156,7 +174,7 @@ wire [31:0]     data_sram_rdata;
 // TLB ports
 wire [18:0] s0_vppn;
 wire        s0_va_bit12;
-wire [ 9:0] s0_asid;
+wire [ 9:0] s0_asid = csr_asid_asid;
 wire        s0_found;
 wire [ 3:0] s0_index;
 wire [19:0] s0_ppn;
@@ -304,7 +322,33 @@ pre_if_stage pre_if_stage(
     .inst_sram_data_ok(inst_sram_data_ok),
 
     .flush       (wb_flush),
-    .flush_target(wb_flush_target)
+    .flush_target(wb_flush_target),
+
+    .s0_va_highbits ({s0_vppn, s0_va_bit12}),
+    .s0_found       (s0_found),
+    .s0_index       (s0_index),
+    .s0_ppn         (s0_ppn),
+    .s0_ps          (s0_ps),
+    .s0_plv         (s0_plv),
+    .s0_mat         (s0_mat),
+    .s0_d           (s0_d),
+    .s0_v           (s0_v),
+
+    .csr_crmd_da    (csr_crmd_da),
+    .csr_crmd_pg    (csr_crmd_pg),
+    .csr_crmd_plv   (csr_crmd_plv),
+
+    .csr_dmw0_plv0  (csr_dmw0_plv0),
+    .csr_dmw0_plv3  (csr_dmw0_plv3),
+    .csr_dmw0_mat   (csr_dmw0_mat),
+    .csr_dmw0_pseg  (csr_dmw0_pseg),
+    .csr_dmw0_vseg  (csr_dmw0_vseg),
+
+    .csr_dmw1_plv0  (csr_dmw1_plv0),
+    .csr_dmw1_plv3  (csr_dmw1_plv3),
+    .csr_dmw1_mat   (csr_dmw1_mat),
+    .csr_dmw1_pseg  (csr_dmw1_pseg),
+    .csr_dmw1_vseg  (csr_dmw1_vseg)
 );
 
 // IF stage
@@ -393,11 +437,36 @@ exe_stage exe_stage(
 
     .s1_va_highbits ({s1_vppn, s1_va_bit12}),
     .s1_asid        (s1_asid),
+    .s1_found       (s1_found),
+    .s1_index       (s1_index),
+    .s1_ppn         (s1_ppn),
+    .s1_ps          (s1_ps),
+    .s1_plv         (s1_plv),
+    .s1_mat         (s1_mat),
+    .s1_d           (s1_d),
+    .s1_v           (s1_v),
+
     .invtlb_valid   (invtlb_valid),
     .invtlb_op      (invtlb_op),
 
     .csr_asid_asid  (csr_asid_asid),
-    .csr_tlbehi_vppn(csr_tlbehi_vppn)
+    .csr_tlbehi_vppn(csr_tlbehi_vppn),
+
+    .csr_crmd_da    (csr_crmd_da),
+    .csr_crmd_pg    (csr_crmd_pg),
+    .csr_crmd_plv   (csr_crmd_plv),
+
+    .csr_dmw0_plv0  (csr_dmw0_plv0),
+    .csr_dmw0_plv3  (csr_dmw0_plv3),
+    .csr_dmw0_mat   (csr_dmw0_mat),
+    .csr_dmw0_pseg  (csr_dmw0_pseg),
+    .csr_dmw0_vseg  (csr_dmw0_vseg),
+
+    .csr_dmw1_plv0  (csr_dmw1_plv0),
+    .csr_dmw1_plv3  (csr_dmw1_plv3),
+    .csr_dmw1_mat   (csr_dmw1_mat),
+    .csr_dmw1_pseg  (csr_dmw1_pseg),
+    .csr_dmw1_vseg  (csr_dmw1_vseg)
 );
 // MEM stage
 mem_stage mem_stage(
@@ -423,10 +492,7 @@ mem_stage mem_stage(
     
     .wb_flush       (wb_flush       ),
     .ms_to_es_ls_cancel(ms_to_es_ls_cancel),
-    .ms_csr_blk_bus (ms_csr_blk_bus ),
-
-    .s1_found       (s1_found       ),
-    .s1_index       (s1_index       )
+    .ms_csr_blk_bus (ms_csr_blk_bus )
 );
 // WB stage
 wb_stage wb_stage(
@@ -500,9 +566,27 @@ csr u_csr(
     .exc_entry  (exc_entry  ),
     .exc_retaddr(exc_retaddr),
 
+    .csr_crmd_plv(csr_crmd_plv),
+    .csr_crmd_da(csr_crmd_da),
+    .csr_crmd_pg(csr_crmd_pg),
+    .csr_crmd_datf(csr_crmd_datf),
+    .csr_crmd_datm(csr_crmd_datm),
+
     .csr_asid_asid   (csr_asid_asid),
     .csr_tlbehi_vppn (csr_tlbehi_vppn),
     .csr_tlbidx_index(csr_tlbidx_index),
+
+    .csr_dmw0_plv0   (csr_dmw0_plv0),
+    .csr_dmw0_plv3   (csr_dmw0_plv3),
+    .csr_dmw0_mat    (csr_dmw0_mat),
+    .csr_dmw0_pseg   (csr_dmw0_pseg),
+    .csr_dmw0_vseg   (csr_dmw0_vseg),
+
+    .csr_dmw1_plv0   (csr_dmw1_plv0),
+    .csr_dmw1_plv3   (csr_dmw1_plv3),
+    .csr_dmw1_mat    (csr_dmw1_mat),
+    .csr_dmw1_pseg   (csr_dmw1_pseg),
+    .csr_dmw1_vseg   (csr_dmw1_vseg),
 
     .tlbsrch_we      (tlbsrch_we),
     .tlbsrch_hit     (tlbsrch_hit),

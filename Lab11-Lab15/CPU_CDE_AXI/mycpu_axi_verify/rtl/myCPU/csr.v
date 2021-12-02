@@ -24,6 +24,12 @@ module csr(
     output [31:0] exc_entry,
     output [31:0] exc_retaddr,
 
+    output reg  [ 1:0] csr_crmd_plv,
+    output reg         csr_crmd_da,
+    output reg         csr_crmd_pg,
+    output reg  [ 1:0] csr_crmd_datf,
+    output reg  [ 1:0] csr_crmd_datm,
+
     output reg [ 9:0] csr_asid_asid,
     output reg [18:0] csr_tlbehi_vppn,
     output reg [ 3:0] csr_tlbidx_index,
@@ -85,12 +91,7 @@ module csr(
 );
 
     // lab8 csrs
-    reg  [ 1:0] csr_crmd_plv;
     reg         csr_crmd_ie;
-    reg         csr_crmd_da;
-    reg         csr_crmd_pg;
-    reg  [ 1:0] csr_crmd_datf;
-    reg  [ 1:0] csr_crmd_datm;
     wire [31:0] csr_crmd_rval;
 
     reg  [ 1:0] csr_prmd_pplv;
@@ -572,7 +573,12 @@ module csr(
      *  DMW
      */
     always @ (posedge clk) begin
-        if (csr_we) begin
+        if (rst) begin
+            csr_dmw0_plv0 <= 1'b0;
+            csr_dmw0_plv3 <= 1'b0;
+            csr_dmw1_plv0 <= 1'b0;
+            csr_dmw1_plv3 <= 1'b0;
+        end else if (csr_we) begin
             if (csr_wnum == `CSR_DMW0) begin
                 csr_dmw0_plv0 <= csr_wmask[`CSR_DMW_PLV0] & csr_wval[`CSR_DMW_PLV0] |
                                 ~csr_wmask[`CSR_DMW_PLV0] & csr_dmw0_plv0;
