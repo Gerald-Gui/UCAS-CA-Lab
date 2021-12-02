@@ -104,6 +104,8 @@ wire [ 5:0] wb_ecode;
 wire [ 8:0] wb_esubcode;
 wire [31:0] wb_pc;
 wire [31:0] wb_badvaddr;
+wire        badv_is_pc;
+wire        badv_is_mem;
 
 wire        wb_ertn;
 wire        csr_has_int;
@@ -521,6 +523,8 @@ wb_stage wb_stage(
     .wb_esubcode    (wb_esubcode    ),
     .wb_pc          (wb_pc          ),
     .wb_badvaddr    (wb_badvaddr    ),
+    .badv_is_pc     (badv_is_pc     ),
+    .badv_is_mem    (badv_is_mem    ),
 
     .ertn_flush     (wb_ertn        ),
 
@@ -559,6 +563,9 @@ csr u_csr(
     .wb_esubcode(wb_esubcode),
     .wb_pc      (wb_pc      ),
     .wb_badvaddr(wb_badvaddr),
+
+    .badv_is_pc (badv_is_pc ),
+    .badv_is_mem(badv_is_mem),
 
     .ertn_flush (wb_ertn    ),
     

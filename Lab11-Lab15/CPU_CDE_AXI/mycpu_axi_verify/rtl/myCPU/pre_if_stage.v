@@ -196,6 +196,6 @@ module pre_if_stage (
     assign pfs_exc_flgs[`EXC_FLG_PIS]  = 1'b0;
     assign pfs_exc_flgs[`EXC_FLG_PIF]  = pfs_tlb_trans & ~s0_v;
     assign pfs_exc_flgs[`EXC_FLG_PME]  = 1'b0;
-    assign pfs_exc_flgs[`EXC_FLG_PPE_F] = pfs_tlb_trans & (csr_crmd_plv > s0_plv) & s0_v;
+    assign pfs_exc_flgs[`EXC_FLG_PPE_F] = pfs_tlb_trans & (csr_crmd_plv > s0_plv);
     assign pfs_exc_flgs[`EXC_FLG_PPE_M] = 1'b0;
 endmodule

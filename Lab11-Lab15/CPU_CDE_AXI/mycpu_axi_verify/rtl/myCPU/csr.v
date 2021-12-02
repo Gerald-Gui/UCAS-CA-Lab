@@ -17,6 +17,8 @@ module csr(
     input  [ 8:0] wb_esubcode,
     input  [31:0] wb_pc,
     input  [31:0] wb_badvaddr,
+    input         badv_is_pc,
+    input         badv_is_mem,
 
     input ertn_flush,
 
@@ -360,13 +362,9 @@ module csr(
             csr_badv_vaddr <= 32'b0;
         end
         if (wb_exc) begin
-            if (wb_ecode == `ECODE_ADE && wb_esubcode == `ESUBCODE_ADEF ||
-                wb_ecode == `ECODE_PIF) begin
+            if (badv_is_pc) begin
                 csr_badv_vaddr <= wb_pc;
-            end else if (wb_ecode == `ECODE_ALE  || wb_ecode == `ECODE_PIL ||
-                         wb_ecode == `ECODE_TLBR || wb_ecode == `ECODE_PIS ||
-                         wb_ecode == `ECODE_PME  || wb_ecode == `ECODE_PPE ||
-                         wb_ecode == `ECODE_ADE && wb_esubcode == `ESUBCODE_ADEM) begin
+            end else if (badv_is_mem) begin
                 csr_badv_vaddr <= wb_badvaddr;
             end
         end
@@ -466,6 +464,11 @@ module csr(
         end else if (tlbrd_we && r_tlb_e) begin
             csr_tlbehi_vppn <= r_tlb_vppn;
         end else if (wb_exc) begin
+            if (badv_is_pc && wb_ecode != `ECODE_ADE) begin
+                csr_tlbehi_vppn <= wb_pc[31:13];
+            end else if (badv_is_mem && wb_ecode != `ECODE_ALE && wb_ecode != `ECODE_ADE) begin
+                csr_tlbehi_vppn <= wb_badvaddr[31:13];
+            end
             if (wb_ecode == `ECODE_TLBR || wb_ecode == `ECODE_PIL ||
                 wb_ecode == `ECODE_PIS  || wb_ecode == `ECODE_PME || wb_ecode == `ECODE_PPE) begin
                 csr_tlbehi_vppn <= wb_badvaddr[31:13];

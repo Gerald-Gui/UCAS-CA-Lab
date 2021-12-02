@@ -311,8 +311,8 @@ assign es_exc_flgs[`EXC_FLG_ADEM] = es_inst_ls & es_alu_result[31] & (csr_crmd_p
 assign es_exc_flgs[`EXC_FLG_TLBR_M] = es_inst_ls & es_tlb_trans & ~s1_found;
 assign es_exc_flgs[`EXC_FLG_PIL]  = (|es_load_op) & es_tlb_trans & ~s1_v;
 assign es_exc_flgs[`EXC_FLG_PIS]  = es_mem_we & es_tlb_trans & ~s1_v;
-assign es_exc_flgs[`EXC_FLG_PME]  = es_mem_we & es_tlb_trans & ~s1_d & (csr_crmd_plv <= s1_plv) & s1_v;
-assign es_exc_flgs[`EXC_FLG_PPE_M] = es_inst_ls & es_tlb_trans & (csr_crmd_plv > s1_plv) & s1_v;
+assign es_exc_flgs[`EXC_FLG_PME]  = es_mem_we & es_tlb_trans & ~s1_d;
+assign es_exc_flgs[`EXC_FLG_PPE_M] = es_inst_ls & es_tlb_trans & (csr_crmd_plv > s1_plv);
 // other exc flgs from ds
 assign es_exc_flgs[`EXC_FLG_ADEF] = ds_to_es_exc_flgs[`EXC_FLG_ADEF];
 assign es_exc_flgs[`EXC_FLG_BRK ] = ds_to_es_exc_flgs[`EXC_FLG_BRK ];

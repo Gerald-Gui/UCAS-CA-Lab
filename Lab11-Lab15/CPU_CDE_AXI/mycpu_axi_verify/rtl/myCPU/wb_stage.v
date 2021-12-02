@@ -27,6 +27,8 @@ module wb_stage(
     output [ 8:0]                   wb_esubcode,
     output [31:0]                   wb_pc,
     output [31:0]                   wb_badvaddr,
+    output                          badv_is_pc,
+    output                          badv_is_mem,
 
     output                          ertn_flush,
 
@@ -169,7 +171,13 @@ assign wb_ecode    = ws_exc_flgs[`EXC_FLG_INT ] ? `ECODE_INT :
 assign wb_esubcode = {9{ws_exc_flgs[`EXC_FLG_ADEF]}} & `ESUBCODE_ADEF |
                      {9{ws_exc_flgs[`EXC_FLG_ADEM]}} & `ESUBCODE_ADEM;
 assign wb_pc = ws_pc;
-assign wb_badvaddr = ws_exc_flgs[`EXC_FLG_TLBR_F] | ws_exc_flgs[`EXC_FLG_PPE_F] ? ws_pc : ws_final_result;
+assign badv_is_pc = ws_exc_flgs[`EXC_FLG_ADEF]  | ws_exc_flgs[`EXC_FLG_TLBR_F] |
+                    ws_exc_flgs[`EXC_FLG_PPE_F] | ws_exc_flgs[`EXC_FLG_PIF];
+assign wb_badvaddr = ws_final_result;
+assign badv_is_mem = ws_exc_flgs[`EXC_FLG_ALE]    | ws_exc_flgs[`EXC_FLG_ADEM]  |
+                     ws_exc_flgs[`EXC_FLG_TLBR_M] | ws_exc_flgs[`EXC_FLG_PPE_M] |
+                     ws_exc_flgs[`EXC_FLG_PIL]    | ws_exc_flgs[`EXC_FLG_PIS]   |
+                     ws_exc_flgs[`EXC_FLG_PME];
 
 assign ertn_flush = ws_inst_ertn & ws_valid;
 
