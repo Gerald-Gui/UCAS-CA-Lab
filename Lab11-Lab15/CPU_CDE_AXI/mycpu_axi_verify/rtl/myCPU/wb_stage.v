@@ -169,7 +169,7 @@ assign wb_ecode    = ws_exc_flgs[`EXC_FLG_INT ] ? `ECODE_INT :
 assign wb_esubcode = {9{ws_exc_flgs[`EXC_FLG_ADEF]}} & `ESUBCODE_ADEF |
                      {9{ws_exc_flgs[`EXC_FLG_ADEM]}} & `ESUBCODE_ADEM;
 assign wb_pc = ws_pc;
-assign wb_badvaddr = ws_final_result;
+assign wb_badvaddr = ws_exc_flgs[`EXC_FLG_TLBR_F] | ws_exc_flgs[`EXC_FLG_PPE_F] ? ws_pc : ws_final_result;
 
 assign ertn_flush = ws_inst_ertn & ws_valid;
 
