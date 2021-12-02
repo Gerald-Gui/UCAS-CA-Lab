@@ -184,7 +184,7 @@ module pre_if_stage (
     assign pfs_tlb_trans = ~pfs_da & ~pfs_dmw0_hit & ~pfs_dmw1_hit;
     // exc flgs
     assign pfs_exc_flgs[`EXC_FLG_SYS]  = 1'b0;
-    assign pfs_exc_flgs[`EXC_FLG_ADEF] = (|pfs_pc[1:0]) | (pfs_pc[31] & csr_crmd_plv == 2'd0);
+    assign pfs_exc_flgs[`EXC_FLG_ADEF] = (|nextpc[1:0]) | (nextpc[31] & csr_crmd_plv == 2'd3);
     assign pfs_exc_flgs[`EXC_FLG_ALE]  = 1'b0;
     assign pfs_exc_flgs[`EXC_FLG_BRK]  = 1'b0;
     assign pfs_exc_flgs[`EXC_FLG_INE]  = 1'b0;

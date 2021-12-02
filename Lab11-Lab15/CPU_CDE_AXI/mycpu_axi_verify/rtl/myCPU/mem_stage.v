@@ -175,12 +175,12 @@ assign load_result = {32{load_byte}} & {{24{load_b_data[ 7] & load_signed}}, loa
                      {32{load_half}} & {{16{load_h_data[15] & load_signed}}, load_h_data} |
                      {32{load_word}} & mem_result;
 
-assign ms_final_result = ms_rdcn_en ? stable_cnter[{ms_rdcn_sel, 5'b0}+:32] :
-                         ms_exc_flgs[`EXC_FLG_ALE] ? ms_alu_result :
-                         ms_res_from_mul           ? mul_result    :
-                         ms_res_from_div           ? div_result    :
-                         (|ms_load_op)             ? load_result   :
-                                                     ms_alu_result;
+assign ms_final_result = (|ms_exc_flgs)  ? ms_alu_result :
+                         ms_rdcn_en      ? stable_cnter[{ms_rdcn_sel, 5'b0}+:32] :
+                         ms_res_from_mul ? mul_result    :
+                         ms_res_from_div ? div_result    :
+                         (|ms_load_op)   ? load_result   :
+                                           ms_alu_result;
 
 assign ms_fwd_blk_bus = {ms_gr_we & ms_to_ws_valid, ((|ms_load_op)) & ms_valid, ms_dest, ms_final_result};
 

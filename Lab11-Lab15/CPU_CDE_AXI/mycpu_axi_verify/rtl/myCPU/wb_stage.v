@@ -154,18 +154,18 @@ assign wb_exc      = (|ws_exc_flgs) & ws_valid;
 assign wb_ecode    = ws_exc_flgs[`EXC_FLG_INT ] ? `ECODE_INT :
                      ws_exc_flgs[`EXC_FLG_ADEF] ? `ECODE_ADE :
                      ws_exc_flgs[`EXC_FLG_TLBR_F] ? `ECODE_TLBR :
-                     ws_exc_flgs[`EXC_FLG_PIF ] ? `ECODE_PIF :
                      ws_exc_flgs[`EXC_FLG_PPE_F] ? `ECODE_PPE :
+                     ws_exc_flgs[`EXC_FLG_PIF ] ? `ECODE_PIF :
                      ws_exc_flgs[`EXC_FLG_INE ] ? `ECODE_INE :
                      ws_exc_flgs[`EXC_FLG_SYS ] ? `ECODE_SYS :
                      ws_exc_flgs[`EXC_FLG_BRK ] ? `ECODE_BRK :
                      ws_exc_flgs[`EXC_FLG_ALE ] ? `ECODE_ALE :
                      ws_exc_flgs[`EXC_FLG_ADEM] ? `ECODE_ADE :
                      ws_exc_flgs[`EXC_FLG_TLBR_M] ? `ECODE_TLBR :
+                     ws_exc_flgs[`EXC_FLG_PPE_M] ? `ECODE_PPE :
                      ws_exc_flgs[`EXC_FLG_PIL ] ? `ECODE_PIL :
                      ws_exc_flgs[`EXC_FLG_PIS ] ? `ECODE_PIS :
-                     ws_exc_flgs[`EXC_FLG_PME ] ? `ECODE_PME :
-                     ws_exc_flgs[`EXC_FLG_PPE_M] ? `ECODE_PPE : 6'h00;
+                     ws_exc_flgs[`EXC_FLG_PME ] ? `ECODE_PME : 6'h00;
 assign wb_esubcode = {9{ws_exc_flgs[`EXC_FLG_ADEF]}} & `ESUBCODE_ADEF |
                      {9{ws_exc_flgs[`EXC_FLG_ADEM]}} & `ESUBCODE_ADEM;
 assign wb_pc = ws_pc;

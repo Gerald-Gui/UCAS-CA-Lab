@@ -307,7 +307,7 @@ assign es_tlb_trans = ~es_da & ~es_dmw0_hit & ~es_dmw1_hit;
 assign es_exc_flgs[`EXC_FLG_ALE ] = es_inst_ls &
                                     (ls_half & es_alu_result[0] |
                                      ls_word & (|es_alu_result[1:0]));
-assign es_exc_flgs[`EXC_FLG_ADEM] = es_inst_ls & es_alu_result[31] & (csr_crmd_plv == 2'd0);
+assign es_exc_flgs[`EXC_FLG_ADEM] = es_inst_ls & es_alu_result[31] & (csr_crmd_plv == 2'd3);
 assign es_exc_flgs[`EXC_FLG_TLBR_M] = es_inst_ls & es_tlb_trans & ~s1_found;
 assign es_exc_flgs[`EXC_FLG_PIL]  = ds_to_es_exc_flgs[`EXC_FLG_PIL] |
                                     (|es_load_op) & es_tlb_trans & ~s1_v;
@@ -327,7 +327,9 @@ assign es_exc_flgs[`EXC_FLG_PIF ] = ds_to_es_exc_flgs[`EXC_FLG_PIF ];
 
 assign es_csr_blk_bus = {es_csr_we & es_valid, es_inst_ertn & es_valid, es_inst_tlbrd & es_valid, es_csr_wnum};
 
-assign s1_va_highbits = invtlb_valid ? es_rkd_value[31:12] : {csr_tlbehi_vppn, 1'b0};
+assign s1_va_highbits = es_inst_ls   ? es_alu_result[31:12] :
+                        invtlb_valid ?  es_rkd_value[31:12] :
+                                      {csr_tlbehi_vppn, 1'b0};
 assign s1_asid        = invtlb_valid ?  es_rj_value[ 9: 0] : csr_asid_asid;
 assign invtlb_valid = es_inst_invtlb;
 assign invtlb_op    = es_invtlb_op;

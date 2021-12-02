@@ -193,13 +193,9 @@ module csr(
         end else if (wb_exc && wb_ecode == `ECODE_TLBR) begin
             csr_crmd_da <= 1'b1;
             csr_crmd_pg <= 1'b0;
-            csr_crmd_datf <= 2'b0;
-            csr_crmd_datm <= 2'b0;
-        end else if (ertn_flush && wb_ecode == `ECODE_TLBR) begin
+        end else if (ertn_flush && csr_estat_ecode == `ECODE_TLBR) begin
             csr_crmd_da <= 1'b0;
             csr_crmd_pg <= 1'b1;
-            csr_crmd_datf <= 2'b01;
-            csr_crmd_datm <= 2'b01;
         end else if (csr_we && csr_wnum == `CSR_CRMD) begin
             csr_crmd_da <= csr_wmask[`CSR_CRMD_DA] & csr_wval[`CSR_CRMD_DA] |
                           ~csr_wmask[`CSR_CRMD_DA] & csr_crmd_da;
@@ -364,11 +360,13 @@ module csr(
             csr_badv_vaddr <= 32'b0;
         end
         if (wb_exc) begin
-            if (wb_ecode == `ECODE_ADE) begin
-                if (wb_esubcode == `ESUBCODE_ADEF) begin
-                    csr_badv_vaddr <= wb_pc;
-                end
-            end else if (wb_ecode == `ECODE_ALE) begin
+            if (wb_ecode == `ECODE_ADE && wb_esubcode == `ESUBCODE_ADEF ||
+                wb_ecode == `ECODE_PIF) begin
+                csr_badv_vaddr <= wb_pc;
+            end else if (wb_ecode == `ECODE_ALE  || wb_ecode == `ECODE_PIL ||
+                         wb_ecode == `ECODE_TLBR || wb_ecode == `ECODE_PIS ||
+                         wb_ecode == `ECODE_PME  || wb_ecode == `ECODE_PPE ||
+                         wb_ecode == `ECODE_ADE && wb_esubcode == `ESUBCODE_ADEM) begin
                 csr_badv_vaddr <= wb_badvaddr;
             end
         end
@@ -467,6 +465,13 @@ module csr(
             csr_tlbehi_vppn <= 19'b0;
         end else if (tlbrd_we && r_tlb_e) begin
             csr_tlbehi_vppn <= r_tlb_vppn;
+        end else if (wb_exc) begin
+            if (wb_ecode == `ECODE_TLBR || wb_ecode == `ECODE_PIL ||
+                wb_ecode == `ECODE_PIS  || wb_ecode == `ECODE_PME || wb_ecode == `ECODE_PPE) begin
+                csr_tlbehi_vppn <= wb_badvaddr[31:13];
+            end else if (wb_ecode == `ECODE_PIF) begin
+                csr_tlbehi_vppn <= wb_pc[31:13];
+            end
         end else if (csr_we && csr_wnum == `CSR_TLBEHI) begin
             csr_tlbehi_vppn <= csr_wmask[`CSR_TLBEHI_VPPN] & csr_wval[`CSR_TLBEHI_VPPN] |
                               ~csr_wmask[`CSR_TLBEHI_VPPN] & csr_tlbehi_vppn;
