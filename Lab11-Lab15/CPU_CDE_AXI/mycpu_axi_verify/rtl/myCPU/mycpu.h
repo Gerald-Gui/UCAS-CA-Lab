@@ -31,5 +31,5 @@
 
     `define ES_CSR_BLK_BUS_WD 17
     `define MS_CSR_BLK_BUS_WD 17
-    `define WS_CSR_BLK_BUS_WD 16
+    `define WS_CSR_BLK_BUS_WD 17
 `endif

@@ -185,7 +185,7 @@ assign ms_final_result = (|ms_exc_flgs)  ? ms_alu_result :
 assign ms_fwd_blk_bus = {ms_gr_we & ms_to_ws_valid, ((|ms_load_op)) & ms_valid, ms_dest, ms_final_result};
 
 assign ms_to_es_ls_cancel = ((|ms_exc_flgs) | ms_inst_ertn | ms_refetch_flg) & ms_valid;
-assign ms_csr_blk_bus     = {ms_csr_we & ms_valid, ms_inst_ertn & ms_valid, ms_inst_tlbrd & ms_valid, ms_csr_wnum};
+assign ms_csr_blk_bus     = {ms_csr_we & ms_valid, ms_inst_ertn & ms_valid, ms_inst_tlbsrch & ms_valid, ms_csr_wnum};
 
 assign ms_exc_flgs = es_to_ms_exc_flgs;
 

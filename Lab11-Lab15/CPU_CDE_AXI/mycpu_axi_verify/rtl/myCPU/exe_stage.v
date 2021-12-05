@@ -323,7 +323,7 @@ assign es_exc_flgs[`EXC_FLG_TLBR_F] = ds_to_es_exc_flgs[`EXC_FLG_TLBR_F];
 assign es_exc_flgs[`EXC_FLG_PPE_F] = ds_to_es_exc_flgs[`EXC_FLG_PPE_F];
 assign es_exc_flgs[`EXC_FLG_PIF ] = ds_to_es_exc_flgs[`EXC_FLG_PIF ];
 
-assign es_csr_blk_bus = {es_csr_we & es_valid, es_inst_ertn & es_valid, es_inst_tlbrd & es_valid, es_csr_wnum};
+assign es_csr_blk_bus = {es_csr_we & es_valid, es_inst_ertn & es_valid, es_inst_tlbsrch & es_valid, es_csr_wnum};
 
 assign s1_va_highbits = es_inst_ls   ? es_alu_result[31:12] :
                         invtlb_valid ?  es_rkd_value[31:12] :

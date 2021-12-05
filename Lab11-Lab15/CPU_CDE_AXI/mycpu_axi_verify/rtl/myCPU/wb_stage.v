@@ -183,7 +183,7 @@ assign ertn_flush = ws_inst_ertn & ws_valid;
 
 assign refetch_flush = ws_refetch_flg & ws_valid;
 
-assign ws_csr_blk_bus = {ws_csr_we & ws_valid, ws_inst_ertn & ws_valid, ws_csr_wnum};
+assign ws_csr_blk_bus = {ws_csr_we & ws_valid, ws_inst_ertn & ws_valid, ws_inst_tlbsrch & ws_valid, ws_csr_wnum};
 
 // X_{n+1} = (5 * X_n + 13) mod 16
 always @ (posedge clk) begin
