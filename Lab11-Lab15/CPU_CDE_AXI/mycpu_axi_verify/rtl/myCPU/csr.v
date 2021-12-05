@@ -469,17 +469,10 @@ module csr(
             end else if (badv_is_mem && wb_ecode != `ECODE_ALE && wb_ecode != `ECODE_ADE) begin
                 csr_tlbehi_vppn <= wb_badvaddr[31:13];
             end
-            if (wb_ecode == `ECODE_TLBR || wb_ecode == `ECODE_PIL ||
-                wb_ecode == `ECODE_PIS  || wb_ecode == `ECODE_PME || wb_ecode == `ECODE_PPE) begin
-                csr_tlbehi_vppn <= wb_badvaddr[31:13];
-            end else if (wb_ecode == `ECODE_PIF) begin
-                csr_tlbehi_vppn <= wb_pc[31:13];
-            end
         end else if (csr_we && csr_wnum == `CSR_TLBEHI) begin
             csr_tlbehi_vppn <= csr_wmask[`CSR_TLBEHI_VPPN] & csr_wval[`CSR_TLBEHI_VPPN] |
                               ~csr_wmask[`CSR_TLBEHI_VPPN] & csr_tlbehi_vppn;
         end
-        // TODO: TLB related exceptions
     end
     assign csr_tlbehi_rval = {csr_tlbehi_vppn, 13'b0};
 

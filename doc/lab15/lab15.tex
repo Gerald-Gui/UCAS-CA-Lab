@@ -93,7 +93,11 @@
 	\end{table*}
 	
 	\section{实验任务}
+    为了抽象物理内存，使得用户进程拥有完整的可用地址空间，现代操作系统提供了基于虚拟内存的存储管理机制。如实现上述机制，传递给CPU的指令携带的地址信息将为虚地址而非物理地址（开启虚存时），但CPU与物理内存间的交互始终只能基于物理地址，故而需要引入存储管理单元MMU进行虚地址到物理地址的翻译工作以及存储管理的部分维护机制。
     
+    现代操作系统通常采用页式内存管理，即虚拟内存与物理内存间的映射以页为单位，由页表存储进程地址空间中虚实页的所有对应关系，特定页的虚实映射关系由页表项（Page Table Entry, PTE）记录。页表记录于内存中，但由于其需要被频繁使用，如每次取指均需由虚拟地址的PC翻译至物理地址请求物理内存，所以为了减小访问页表的开销，在CPU中使用TLB（Translation Lookaside Buffer）记录部分页表项以加快虚实地址翻译。
+    
+    本专题实验基于上述思想，从TLB模块设计入手，基于LoongArch 32位精简版指令集首先完成TLB的集成与维护（TLB相关指令），其后基于上述工作完成虚实地址翻译功能。
 	
 	\section{实验设计}	
 	\subsection{重要模块设计：\texttt{TLB}}
@@ -159,11 +163,12 @@
     assign inv_op_mask[4] = inv_match[0] & inv_match[2];
     assign inv_op_mask[5] = inv_match[0] & inv_match[2] & inv_match[3];
     assign inv_op_mask[6] = (inv_match[0] | inv_match[2]) & inv_match[3];
+    // set rest to 16'h0000
     
     always @ (posedge clk) begin
         if (we) begin
             // write logic
-        end else begin
+        end else if (invtlb_valid) begin
             tlb_e <= ~inv_op_mask[invtlb_op] & tlb_e;
         end
     end
@@ -226,19 +231,216 @@
         \end{tabularx}
     \end{table}
 
+    \subsection{\textbf{TLB}集成与\textbf{TLB}指令的添加}
+    \subsubsection{\textbf{TLB}的集成}
+    TLB设计中预留两套查找端口，分别供取指（pre-IF级）和访存（EXE级）使用，读写端口分别供TLB指令tlbrd、tlbwr/tlbfill使用，如讲义中讨论的指令实现细节，为尽量减少围绕TLB和相关CSR寄存器的数据相关，读写过程均在写回(WB)级完成读写动作。由此可以注意到TLB模块与CSR模块类似，需要与多个流水级进行交互，故而同样将其例化于流水级之外而非某个特定流水级之内，从而便于其与各流水级交互。
+    
+    在仅进行集成而不考虑虚实地址翻译功能的实现时，用于取指的s0端口暂无需考虑，用于访存的s1端口仅需考虑复用其的tlbsrch、invtlb指令功能支持即可，读写功能中读写使能来自流水级，读地址来自CSR，写地址除tlbwr使用TLBIDX内容外，还有tlbfill使用随机数的情形需要考虑。
+    
+    \subsubsection{\textbf{TLB}相关\textbf{CSR}寄存器}
+    
+    需要实现的五条TLB相关指令中，除了invtlb指令应用了部分来自通用寄存器的数据外，其他四条指令均是指示TLB与相关CSR寄存器间的交互。CSR寄存器中TLBEHI、TLBELO0/1记录一个TLB表项的主要信息，TLB表项中其他内容，如asid域、ps域、e位由CSR.ASID寄存器、CSR.TLBIDX寄存器记录。读写过程即将上述CSR寄存器内容与TLB表项进行读写（“读/写”动作均相对TLB而言）。tlbsrch则应用其中asid、vppn信息进行查找，仅记录查找成功与否、查找结果的e位与查找结果的TLB索引。
+    
+    具体实现上引入tlbsrch、tlbrd、tlbwr、tlbfill指令的相应使能（invtlb指令不维护CSR寄存器，仅需将其使能传递给TLB模块即可），根据指令手册中对相关寄存器各域的描述，在相应的\texttt{always}块中加上对应分支即可。此处逻辑与指令手册一致，不再给出具体代码描述。
+    
+    \subsubsection{\textbf{TLB}指令的添加}
+    
+    如前所述，除invtlb外的四条tlb相关指令均是指示TLB与相关CSR寄存器交互，并不需要应用通用寄存器与其他存储单元，在数据通路的构造上较为简单，只需将其译码结果作为前文提到的对CSR使能传递到写回级发送给CSR即可。其中tlbsrch在执行级发出查找请求后需将收到的查找结果传递到写回级一并发给CSR。
+    
+    invtlb指令使用的数据来自指令码与通用寄存器，由于其复用执行级的s1端口，该处已有\texttt{rj}、\texttt{rk}寄存器数据，直接连线使用即可。其操作类型单独自译码级传递至执行级。
+    
+    本次实验引入TLB与一众CSR寄存器作为新的存储结构，自然需要考量其数据相关问题。这些数据相关问题可以分为两类：(1) TLB与CSR.CRMD、CSR.DMW0/1等影响取指的存储结构；(2)其他CSR寄存器。
+    
+    前者影响取指过程，由于流水线设计不可避免地在获取到指令类型时已经取到一条新指令，故而在指令修改（即写）上述结构时，引入重取机制将该写指令后续流水线内指令全部刷掉重新从其后一条指令处开始取指。具体代码实现上，在译码级即可判断出是否需要进行重取标记：
+    \begin{minted}{verilog}
+    assign ds_refetch_flg = inst_tlbfill || inst_tlbwr || inst_tlbrd || inst_invtlb ||
+                            ds_csr_we && (ds_csr_wnum == `CSR_CRMD || ds_csr_wnum == `CSR_ASID ||
+                                          ds_csr_wnum == `CSR_DMW0 || ds_csr_wnum == `CSR_DMW1);
+    \end{minted}
+    当携带着重取标志的指令到达写回级后复用发异常的数据通路清空流水线，只是该“异常”不会修改任何CSR寄存器，而且其入口为当前$\mathrm{PC} + 4$。
+    
+    对于其他CSR寄存器引起的数据相关采用此前处理CSR相关的阻塞思路一致。由于我们的设计在ID级读CSR寄存器，故而新引入的读写关系分为三类：(1) tlbrd指令修改CSR寄存器，后续CSR指令读TLB相关寄存器；(2) tlbsrch修改CSR.TLBIDX，后续CSR指令读该寄存器；(3) tlbsrch指令在执行级使用CSR.ASID、CSR.TLBEHI寄存器内容查找TLB，后续流水级中有修改该寄存器的指令。其中(1)已经被此前的重取机制解决，(2)采用与此前完全一致的阻塞机制，(3)同样采用阻塞机制，但复用原ID级的阻塞逻辑与其他情况略有不同。对于其他的阻塞来源，读者通常在ID级获取到读数据，故而对于其后每一级中写者均需进行判断，但tlbsrch并不需要在ID级获取到读数据，其在EXE级才会使用CSR.ASID、CSR.TLBEHI数据，故而不用判断写回级的写者，当tlbsrch自ID级流向EXE级时写回级对这些CSR寄存器的写动作已经完成。
+    
+    \begin{minted}{verilog}
+assign csr_blk = ds_csr_re & (es_csr_blk | ms_csr_blk | ws_csr_blk);
+assign es_csr_blk = es_csr_we    &&  csr_rnum == es_csr_wnum  ||
+                    es_eret      &&  csr_rnum == `CSR_CRMD    ||
+                    es_tlbsrch   &&  csr_rnum == `CSR_TLBIDX  ||
+                    inst_tlbsrch && (es_csr_wnum == `CSR_ASID || es_csr_wnum == `CSR_TLBEHI);
+assign ms_csr_blk = ms_csr_we    &&  csr_rnum == ms_csr_wnum  ||
+                    ms_eret      &&  csr_rnum == `CSR_CRMD    ||
+                    ms_tlbsrch   &&  csr_rnum == `CSR_TLBIDX  ||
+                    inst_tlbsrch && (ms_csr_wnum == `CSR_ASID || ms_csr_wnum == `CSR_TLBEHI);
+assign ws_csr_blk = ws_csr_we    &&  csr_rnum == ws_csr_wnum  ||
+                    ws_eret      &&  csr_rnum == `CSR_CRMD    ||
+                    ws_tlbsrch   &&  csr_rnum == `CSR_TLBIDX;
+    \end{minted}
+    
+    \subsection{虚实地址翻译}
+    
+    LoongArch 32位精简版支持的地址翻译模式与其相应逻辑通过指令手册可以获得较为清晰的梳理，此处不再赘述，以下仅以pre-IF级为例给出主要代码实现：
+    \begin{minted}{verilog}
+    assign inst_sram_addr = pfs_da       ? nextpc         :
+                            pfs_dmw0_hit ? pfs_dmw0_paddr :
+                            pfs_dmw1_hit ? pfs_dmw1_paddr :
+                                           pfs_tlb_paddr;
+    assign pfs_da = csr_crmd_da & ~csr_crmd_pg;
+    assign pfs_dmw0_hit = nextpc[31:29] == csr_dmw0_vseg &&
+                          (csr_crmd_plv == 2'd0 && csr_dmw0_plv0 ||
+                           csr_crmd_plv == 2'd3 && csr_dmw0_plv3);
+    assign pfs_dmw1_hit = nextpc[31:29] == csr_dmw1_vseg &&
+                          (csr_crmd_plv == 2'd0 && csr_dmw1_plv0 ||
+                           csr_crmd_plv == 2'd3 && csr_dmw1_plv3);
+    assign pfs_dmw0_paddr = {csr_dmw0_pseg, nextpc[28:0]};
+    assign pfs_dmw1_paddr = {csr_dmw1_pseg, nextpc[28:0]};
+    assign pfs_tlb_paddr = s0_ps == 6'd22 ? {s0_ppn[19:10], nextpc[21:0]} :
+                                            {s0_ppn, nextpc[11:0]};
+    \end{minted}
+    此处简化了直接地址翻译模式与映射地址翻译模式的判断逻辑，还简化了页大小对TLB结果的拼接影响。
+    
+    \subsection{\textbf{TLB}相关例外}
+    
+    TLB相关的异常包括TLB重填（TLBR）、Load/Store/取指操作页无效（PIL/PIS/PIF）、页修改（PME）、页特权等级不合规（PPE\footnote{对于该例外的简称，指令手册中部分（CSR.ESTAT的Ecode域）为PPI，部分（5.4.4节基于TLB的虚实地址转换过程小节）为PPE，代码实现与本报告中的命名均采用PPE。}），此外由于完善了访存地址（包括取指地址）的特权等级区分，故而ADEF与ADEM异常的逻辑也可以进行完善。
+    
+    异常优先级的考虑需要区分TLBR、PPE指令发生在取指还是访存\footnote{当然测试集中好像没测出来这些（）}，同时可以将TLB相关的五条例外间的互斥在优先级判断中处理，减小电路开销。
+    
+    \begin{minted}{verilog}
+    // pre_if_stage.v
+    assign pfs_exc_flgs[`EXC_FLG_ADEF] = (|nextpc[1:0]) | (nextpc[31] & csr_crmd_plv == 2'd3);
+    assign pfs_exc_flgs[`EXC_FLG_TLBR_F] = pfs_tlb_trans & ~s0_found;
+    assign pfs_exc_flgs[`EXC_FLG_PIF]  = pfs_tlb_trans & ~s0_v;
+    assign pfs_exc_flgs[`EXC_FLG_PPE_F] = pfs_tlb_trans & (csr_crmd_plv > s0_plv);
+
+    // exe_stage.v
+    assign es_exc_flgs[`EXC_FLG_ADEM] = es_inst_ls & es_alu_result[31] & (csr_crmd_plv == 2'd3);
+    assign es_exc_flgs[`EXC_FLG_TLBR_M] = es_inst_ls & es_tlb_trans & ~s1_found;
+    assign es_exc_flgs[`EXC_FLG_PIL]  = (|es_load_op) & es_tlb_trans & ~s1_v;
+    assign es_exc_flgs[`EXC_FLG_PIS]  = es_mem_we & es_tlb_trans & ~s1_v;
+    assign es_exc_flgs[`EXC_FLG_PME]  = es_mem_we & es_tlb_trans & ~s1_d;
+    assign es_exc_flgs[`EXC_FLG_PPE_M] = es_inst_ls & es_tlb_trans & (csr_crmd_plv > s1_plv);
+    
+    // wb_stage.v
+    assign wb_exc      = (|ws_exc_flgs) & ws_valid;
+    assign wb_ecode    = ws_exc_flgs[`EXC_FLG_INT ] ? `ECODE_INT :
+                         ws_exc_flgs[`EXC_FLG_ADEF] ? `ECODE_ADE :
+                         ws_exc_flgs[`EXC_FLG_TLBR_F] ? `ECODE_TLBR :
+                         ws_exc_flgs[`EXC_FLG_PIF ] ? `ECODE_PIF :
+                         ws_exc_flgs[`EXC_FLG_PPE_F] ? `ECODE_PPE :
+                         ws_exc_flgs[`EXC_FLG_INE ] ? `ECODE_INE :
+                         ws_exc_flgs[`EXC_FLG_SYS ] ? `ECODE_SYS :
+                         ws_exc_flgs[`EXC_FLG_BRK ] ? `ECODE_BRK :
+                         ws_exc_flgs[`EXC_FLG_ALE ] ? `ECODE_ALE :
+                         ws_exc_flgs[`EXC_FLG_ADEM] ? `ECODE_ADE :
+                         ws_exc_flgs[`EXC_FLG_TLBR_M] ? `ECODE_TLBR :
+                         ws_exc_flgs[`EXC_FLG_PIL ] ? `ECODE_PIL :
+                         ws_exc_flgs[`EXC_FLG_PIS ] ? `ECODE_PIS :
+                         ws_exc_flgs[`EXC_FLG_PPE_M] ? `ECODE_PPE :
+                         ws_exc_flgs[`EXC_FLG_PME ] ? `ECODE_PME : 6'h00;
+    assign wb_esubcode = {9{ws_exc_flgs[`EXC_FLG_ADEF]}} & `ESUBCODE_ADEF |
+                         {9{ws_exc_flgs[`EXC_FLG_ADEM]}} & `ESUBCODE_ADEM;
+    \end{minted}
+
+    此外在LoongArch 32位精简版中TLB重填例外入口与其他例外入口不同，由CSR.TLBRENTRY指定，需要对其进行选择。
+
 	\section{实验过程}
 	
 	\subsection{实验流水账}
 	
 	2021.10.28 10:00 $\sim$ 2021.10.28 10:30 ：根据讲义内容与gitee仓库tlb\_verify\footnote{https://gitee.com/ucas-ca-edu-lab/tlb_verify}完成TLB初步设计，由于验证环境问题未完全验证设计。
     
-    2021.11.18 16:00 $\sim$ 2021.11.18 16:45 ：编写设计\texttt{mylog2}模块，根据正式实验环境通过验证。
+    2021.11.18 16:00 $\sim$ 2021.11.18 16:45 ：编写设计\texttt{mylog2}模块，根据正式实验环境通过TLB功能验证。
     
-	\subsection{错误记录}	
-	
+    2021.11.29 00:00 $\sim$ 2021.11.29 02:00 ：编写lab14中新增CSR寄存器部分。
+    
+    2021.11.29 08:00 $\sim$ 2021.11.29 11:30 ：编写lab14中新增指令与集成TLB部分。
+    
+    2021.11.29 15:20 $\sim$ 2021.11.29 16:20 ：lab14 debug完成。
+    
+    2021.12.02 09:10 $\sim$ 2021.12.02 15:10 ：完成lab15。
+    
+    2021.12.05 18:00 $\sim$ 2021.12.05 21:30 ：完成本实验报告撰写。
+    
+	\subsection{错误记录}
+    本次实验报告不再讨论笔误与简单逻辑错误。
+    
+	\subsubsection{错误\textbf{1：}重取入口与异常入口的优先级}
+    \paragraph{错误现象}\hfill
+    
+    \texttt{invtlb\_op}测试点中未按理进入异常入口。
+    
+    \paragraph{分析定位过程}\hfill
+    
+    \texttt{invtlb\_op}测试点中测试\texttt{op}不合法时的invtlb指令运行情况，invtlb在\texttt{op}域不合法时应发指令不存在例外（INE），该异常被正确检测，但刷新流水线后的入口为重取入口而非异常入口。即如下代码中的优先级错误：
+    \begin{minted}{verilog}
+    assign wb_flush_target = wb_refetch ? wb_pc + 32'd4 :
+                             wb_exc     ? exc_entry     :
+                                          exc_retaddr;
+    \end{minted}
+    
+    \paragraph{错误原因}\hfill
+    
+    编写代码时未考虑invtlb指令同时重取与发INE异常的情形，优先级直接乱写。重新考虑刷新流水线的三种情形间优先级，重取为指令正常执行行为，而异常为“错误”行为，改错（处理异常）应优先于正常执行的重取，异常返回的\texttt{ertn}本身不引起重取，即异常返回与重取不会同时发生。
+    
+    \paragraph{修正效果}\hfill
+    
+    调整优先级关系如下：
+    \begin{minted}{verilog}
+    assign wb_flush_target = wb_exc     ? exc_entry     :
+                             wb_refetch ? wb_pc + 32'd4 :
+                                          exc_retaddr;
+    \end{minted}
+    完善了刷新流水线相关逻辑。
+    
+    \subsubsection{错误\textbf{2：}\textbf{CSR.BADV}与\textbf{CSR.TLBEHI}维护错误}
+    \paragraph{错误现象}\hfill
+    
+    lab15新引入的异常测试点中读CSR.BADV或CSR.TLBEHI寄存器错误。
+    
+    \paragraph{分析定位过程与错误原因}\hfill
+    
+    重新查阅指令手册中有关这两个寄存器的维护逻辑，注意到lab9、lab14中对其实现的逻辑并非完善，对lab15新增的异常未做支持。
+    
+    \paragraph{错误修订}\hfill
+    
+    在写回级根据异常类型判断\texttt{badv}的来源为PC或访存地址，在CSR模块中修改CSR.BADV、CSR.TLBEHI维护逻辑如下：
+    \begin{minted}{verilog}
+    always @ (posedge clk) begin
+        if(rst)begin
+            csr_badv_vaddr <= 32'b0;
+        end
+        if (wb_exc) begin
+            if (badv_is_pc) begin
+                csr_badv_vaddr <= wb_pc;
+            end else if (badv_is_mem) begin
+                csr_badv_vaddr <= wb_badvaddr;
+            end
+        end
+    end
+    
+    always @ (posedge clk) begin
+        if (rst) begin
+            csr_tlbehi_vppn <= 19'b0;
+        end else if (tlbrd_we && r_tlb_e) begin
+            csr_tlbehi_vppn <= r_tlb_vppn;
+        end else if (wb_exc) begin
+            if (badv_is_pc && wb_ecode != `ECODE_ADE) begin
+                csr_tlbehi_vppn <= wb_pc[31:13];
+            end else if (badv_is_mem && wb_ecode != `ECODE_ALE && wb_ecode != `ECODE_ADE) begin
+                csr_tlbehi_vppn <= wb_badvaddr[31:13];
+            end
+        end else if (csr_we && csr_wnum == `CSR_TLBEHI) begin
+            csr_tlbehi_vppn <= csr_wmask[`CSR_TLBEHI_VPPN] & csr_wval[`CSR_TLBEHI_VPPN] |
+                              ~csr_wmask[`CSR_TLBEHI_VPPN] & csr_tlbehi_vppn;
+        end
+    end
+    \end{minted}
+    
+    \paragraph{归纳总结}\hfill
+    
+    该错误来自于迭代开发过程中未记录不完善的实现，以跨实验的视角来合理注释TODO还是有必要的。
 	
 	\section{实验总结}
 	
-	
+	本专题实验整体难度不高，按步就班根据指令手册与实验讲义进行实现即可，具体实现过程中还是要多关注实验细节与迭代开发过程中隐藏的问题，不然就容易出现上述错误。
 	
 \end{document}
