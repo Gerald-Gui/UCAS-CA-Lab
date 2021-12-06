@@ -610,6 +610,11 @@ module csr(
                             16'b0,
                             2'b0, csr_dmw0_mat,
                             csr_dmw0_plv3, 2'b0, csr_dmw0_plv0};
+    assign csr_dmw0_rval = {csr_dmw1_vseg, 1'b0,
+                            csr_dmw1_pseg, 1'b0,
+                            16'b0,
+                            2'b0, csr_dmw1_mat,
+                            csr_dmw1_plv3, 2'b0, csr_dmw1_plv0};
 
     /*
      * CSR output logic
@@ -635,7 +640,8 @@ module csr(
                       {32{csr_rnum == `CSR_TLBELO1}} & csr_tlbelo1_rval |
                       {32{csr_rnum == `CSR_ASID  }}  & csr_asid_rval    |
                       {32{csr_rnum == `CSR_TLBRENTRY}} & csr_tlbrentry_rval |
-                      {32{csr_rnum == `CSR_DMW0  }}  & csr_dmw0_rval;
+                      {32{csr_rnum == `CSR_DMW0  }}  & csr_dmw0_rval    |
+                      {32{csr_rnum == `CSR_DMW1  }}  & csr_dmw1_rval;
     assign exc_entry   = wb_exc && wb_ecode == `ECODE_TLBR ? csr_tlbrentry_rval : csr_eentry_rval;
     assign exc_retaddr = csr_era_rval;
     assign has_int     = (|(csr_estat_is & csr_ecfg_lie)) & csr_crmd_ie;

@@ -139,8 +139,8 @@ always @(posedge clk) begin
         ms_valid <= es_to_ms_valid;
     end
 
-    if(reset) begin
-        es_to_ms_bus_r  <= `ES_TO_MS_BUS_WD'b0;;
+    if (reset) begin
+        es_to_ms_bus_r  <= `ES_TO_MS_BUS_WD'b0;
     end else if (es_to_ms_valid && ms_allowin) begin
         es_to_ms_bus_r  <= es_to_ms_bus;
     end
