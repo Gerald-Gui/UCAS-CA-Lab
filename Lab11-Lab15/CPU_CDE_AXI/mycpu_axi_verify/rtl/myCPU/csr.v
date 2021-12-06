@@ -610,7 +610,7 @@ module csr(
                             16'b0,
                             2'b0, csr_dmw0_mat,
                             csr_dmw0_plv3, 2'b0, csr_dmw0_plv0};
-    assign csr_dmw0_rval = {csr_dmw1_vseg, 1'b0,
+    assign csr_dmw1_rval = {csr_dmw1_vseg, 1'b0,
                             csr_dmw1_pseg, 1'b0,
                             16'b0,
                             2'b0, csr_dmw1_mat,
