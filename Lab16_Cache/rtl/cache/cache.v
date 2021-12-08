@@ -20,7 +20,7 @@ module cache(
         output [31:0]   rd_addr,
         input           rd_rdy,
         input           ret_valid,
-        input  [ 2:0]   ret_last,
+        input           ret_last,
         input  [31:0]   ret_data,
 
         output          wr_req,
