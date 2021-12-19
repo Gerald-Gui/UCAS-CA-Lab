@@ -36,3 +36,8 @@ Lab13_TLB/rtl/xilinx_ip/
 Lab13_TLB/rtl/tlb_top.v
 Lab13_TLB/run_vivado/
 Lab13_TLB/testbench/
+
+Lab16_Cache/rtl/xilinx_ip/
+Lab16_Cache/rtl/cache_top.v
+Lab16_Cache/run_vivado/
+Lab16_Cache/testbench/
