@@ -285,11 +285,11 @@ module cache(
 
     // to cpu
     assign addr_ok = cur_state[`IDLE]
-                   | cur_state[`LOOKUP] & valid &  op_r & cache_hit
-                   | cur_state[`LOOKUP] & valid & ~op_r & cache_hit & ~hit_write_hazard;
+                   | cur_state[`LOOKUP] & valid &  op & cache_hit
+                   | cur_state[`LOOKUP] & valid & ~op & cache_hit & ~hit_write_hazard;
     assign data_ok = cur_state[`LOOKUP] & cache_hit
                    | cur_state[`LOOKUP] & op_r
-                   | cur_state[`REFILL] & ret_valid & ret_cnt == offset_r[3:2];
+                   | cur_state[`REFILL] & ret_valid & ret_cnt == offset_r[3:2] & ~op_r;
     assign rdata = ret_valid ? ret_data : load_res;
 
     // to axi
