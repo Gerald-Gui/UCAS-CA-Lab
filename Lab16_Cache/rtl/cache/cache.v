@@ -14,7 +14,6 @@ module cache(
         output          data_ok,
         output [31:0]   rdata,
 
-
         output          rd_req,
         output [ 2:0]   rd_type,
         output [31:0]   rd_addr,
@@ -45,7 +44,7 @@ module cache(
     `define WRBUF_WRITE 1
     localparam  WRBUF_IDLE  = 2'b01,
                 WRBUF_WRITE = 2'b10;
-    genvar i;
+    genvar i, j;
 
     wire rst = ~resetn;
 
@@ -72,7 +71,7 @@ module cache(
     wire [20:0] vtag_wdata [1:0];   // 20:20 v; 19:0 tag
     wire [20:0] vtag_rdata [1:0];
 
-    wire        data_bank_we    [1:0][3:0];
+    wire [ 3:0] data_bank_we    [1:0][3:0];
     wire [ 7:0] data_bank_addr  [1:0][3:0];
     wire [31:0] data_bank_wdata [1:0][3:0];
     wire [31:0] data_bank_rdata [1:0][3:0];
@@ -84,7 +83,29 @@ module cache(
     wire [1:0] way_hit;
     wire cache_hit;
 
-    wire hit_write; 
+    wire hit_write;
+    wire hit_write_hazard;
+
+    // data
+    wire [31:0] load_res;
+
+    // replace && refill
+    reg  [15:0] lfsr;
+    wire        replace_way;
+    reg  [ 1:0] ret_cnt;
+    reg  [31:0] load_buf [3:0];
+    wire [31:0] refill_data [3:0];
+
+    // axi wr
+    reg  wr_req_r;
+
+    // write state machine
+    reg  [48:0] write_buf;  // way, index, offset, wstrb, wdata
+    wire        wrbuf_way;
+    wire [ 7:0] wrbuf_index;
+    wire [ 3:0] wrbuf_offset;
+    wire [ 3:0] wrbuf_wstrb;
+    wire [31:0] wrbuf_wdata;
 
     // cache main state machine
 
@@ -99,24 +120,44 @@ module cache(
     always @ (*) begin
         case (cur_state)
             IDLE:
-                if (valid) begin
+                if (valid & ~hit_write_hazard) begin
                     nxt_state = LOOKUP;
                 end else begin
                     nxt_state = IDLE;
                 end
             LOOKUP:
-                if (cache_hit) begin
+                if (cache_hit & (~valid | hit_write_hazard)) begin
                     nxt_state = IDLE;
+                end else if (cache_hit & valid) begin
+                    nxt_state = LOOKUP;
+                end else if (~dirty_arr[replace_way][index_r] | ~vtag_rdata[replace_way][20]) begin
+                    nxt_state = REPLACE;
                 end else begin
                     nxt_state = MISS;
+                end
+            MISS:
+                if (~wr_rdy) begin
+                    nxt_state = MISS;
+                end else begin
+                    nxt_state = REPLACE;
+                end
+            REPLACE:
+                if (~rd_rdy) begin
+                    nxt_state = REPLACE;
+                end else begin
+                    nxt_state = REFILL;
+                end
+            REFILL:
+                if (ret_valid & ret_last) begin
+                    nxt_state = IDLE;
+                end else begin
+                    nxt_state = REFILL;
                 end
             default:nxt_state = IDLE;
         endcase
     end
 
     // IDLE
-
-    assign addr_ok = cur_state[`IDLE];
     
     always @ (posedge clk_g) begin
         if (rst) begin
@@ -127,13 +168,71 @@ module cache(
     end
     assign {op_r, wstrb_r, wdata_r, index_r, tag_r, offset_r} = req_buf;
     
-    assign vtag_addr[0] = index;
-    assign vtag_addr[1] = index;
+    assign vtag_addr[0] = cur_state[`IDLE] ? index : index_r;
+    assign vtag_addr[1] = cur_state[`IDLE] ? index : index_r;
+
+    generate
+        for (i = 0; i < 2; i = i + 1) begin
+            for (j = 0; j < 4; j = j + 1) begin
+                assign data_bank_addr[i][j] = cur_state[`IDLE] ? index : index_r;
+            end
+        end
+    endgenerate
+
     
     // LOOKUP
     assign way_hit[0] = vtag_rdata[0][20] && (vtag_rdata[0][19:0] == tag_r);
     assign way_hit[1] = vtag_rdata[1][20] && (vtag_rdata[1][19:0] == tag_r);
     assign cache_hit = |way_hit;
+
+    assign hit_write = cache_hit & op_r & cur_state[`LOOKUP];
+
+    assign hit_write_hazard = cur_state[`LOOKUP] && hit_write && valid && ~op && {index, offset} == {index_r, offset_r} ||
+                              wrbuf_cur_state[`WRBUF_WRITE] && valid && ~op && offset[3:2] == offset_r[3:2];
+
+    assign load_res = data_bank_rdata[way_hit[1]][offset_r[3:2]];
+
+    // replace
+    always @ (posedge clk_g) begin
+        if (rst) begin
+            lfsr <= 16'b1001_1101_1101_1000;
+        end else if (ret_valid & ret_last) begin
+            lfsr <= {lfsr[0] ^ lfsr[4] ^ lfsr[8] ^ lfsr[12], lfsr[15:1]};
+        end
+    end
+    assign replace_way = lfsr[0];
+
+    // refill
+    always @ (posedge clk_g) begin
+        if (rst) begin
+            ret_cnt <= 2'b0;
+        end else if (ret_valid & ~ret_last) begin
+            ret_cnt <= ret_cnt + 2'd1;
+        end else if (ret_valid & ret_last) begin
+            ret_cnt <= 2'b0;
+        end
+    end
+
+    always @ (posedge clk_g) begin
+        if (rst) begin
+            load_buf[0] <= 32'b0;
+            load_buf[1] <= 32'b0;
+            load_buf[2] <= 32'b0;
+            load_buf[3] <= 32'b0;
+        end else if (ret_valid) begin
+            load_buf[ret_cnt] <= ret_data;
+        end
+    end
+
+    generate
+        for (i = 0; i < 4; i = i + 1) begin
+           assign refill_data[i] = offset_r[3:2] == i ?
+                                   {wstrb_r[3] ? wdata[31:24] : load_buf[i][31:24],
+                                    wstrb_r[2] ? wdata[23:16] : load_buf[i][23:16],
+                                    wstrb_r[1] ? wdata[15: 8] : load_buf[i][15: 8],
+                                    wstrb_r[0] ? wdata[ 7: 0] : load_buf[i][ 7: 0]} : load_buf[i]; 
+        end        
+    endgenerate
 
     // write buffer state machine
     always @ (posedge clk_g) begin
@@ -162,6 +261,59 @@ module cache(
         endcase
     end
 
+    always @ (posedge clk_g) begin
+        if (rst) begin
+            write_buf <= 49'b0;
+        end else if (hit_write) begin
+            write_buf <= {way_hit[1], index_r, offset_r, wstrb_r, wdata_r};
+        end
+    end
+    
+    assign {wrbuf_way, wrbuf_index, wrbuf_offset, wrbuf_wstrb, wrbuf_wdata} = write_buf;
+    
+    // dirty array
+    always @ (posedge clk_g) begin
+        if (rst) begin
+            dirty_arr[0] <= 256'b0;
+            dirty_arr[1] <= 256'b0;
+        end else if (wrbuf_cur_state[`WRBUF_WRITE]) begin
+            dirty_arr[wrbuf_way][wrbuf_index] <= 1'b1;
+        end else if (ret_valid & ret_last) begin
+            dirty_arr[replace_way][index_r] <= op_r;
+        end
+    end
+
+    // to cpu
+    assign addr_ok = cur_state[`IDLE]
+                   | cur_state[`LOOKUP] & valid &  op_r & cache_hit
+                   | cur_state[`LOOKUP] & valid & ~op_r & cache_hit & ~hit_write_hazard;
+    assign data_ok = cur_state[`LOOKUP] & cache_hit
+                   | cur_state[`LOOKUP] & op_r
+                   | cur_state[`REFILL] & ret_valid & ret_cnt == offset_r[3:2];
+    assign rdata = ret_valid ? ret_data : load_res;
+
+    // to axi
+    assign rd_req  = cur_state[`REPLACE];
+    assign rd_type = 3'b100;
+    assign rd_addr = {tag_r, index_r, offset_r};
+
+    assign wr_req = wr_req_r;
+    always @ (posedge clk_g) begin
+        if (rst) begin
+            wr_req_r <= 1'b0;
+        end else if (cur_state[`MISS] & wr_rdy) begin
+            wr_req_r <= 1'b1;
+        end else begin
+            wr_req_r <= 1'b0;
+        end
+    end
+    assign wr_type  = 3'b100;
+    assign wr_addr  = {vtag_rdata[replace_way][19:0], index_r, offset_r};
+    assign wr_wstrb = 4'hf;
+    assign wr_data  = {data_bank_rdata[replace_way][3],
+                       data_bank_rdata[replace_way][2],
+                       data_bank_rdata[replace_way][1],
+                       data_bank_rdata[replace_way][0]};
 
     // vtag ram: 20:20 v; 19:0 tag
     generate for (i = 0; i < 2; i = i + 1) begin
@@ -176,6 +328,30 @@ module cache(
     endgenerate
 
     // data bank ram
+
+    assign data_bank_we[0][0] = {4{wrbuf_cur_state[`WRBUF_WRITE] & wrbuf_offset[3:2] == 0 & ~wrbuf_way}} & wrbuf_wstrb
+                              | {4{ret_valid & ret_cnt == 0 & ~replace_way}} & 4'hf;
+    generate
+        for (i = 0; i < 4; i = i + 1) begin
+            assign data_bank_we[0][i] = {4{wrbuf_cur_state[`WRBUF_WRITE] & wrbuf_offset[3:2] == i & ~wrbuf_way}} & wrbuf_wstrb
+                                      | {4{ret_valid & ret_cnt == i & ~replace_way}} & 4'hf;
+            assign data_bank_we[1][i] = {4{wrbuf_cur_state[`WRBUF_WRITE] & wrbuf_offset[3:2] == i &  wrbuf_way}} & wrbuf_wstrb
+                                      | {4{ret_valid & ret_cnt == i &  replace_way}} & 4'hf;
+            assign data_bank_wdata[0][i] = wrbuf_cur_state[`WRBUF_WRITE] ? wrbuf_wdata :
+                                           offset_r[3:2] != i            ? ret_data    :
+                                           {wstrb_r[3] ? wdata_r[31:24] : ret_data[31:24],
+                                            wstrb_r[2] ? wdata_r[23:16] : ret_data[23:16],
+                                            wstrb_r[1] ? wdata_r[15: 8] : ret_data[15: 8],
+                                            wstrb_r[0] ? wdata_r[ 7: 0] : ret_data[ 7: 0]};
+            assign data_bank_wdata[1][i] = wrbuf_cur_state[`WRBUF_WRITE] ? wrbuf_wdata :
+                                           offset_r[3:2] != i            ? ret_data    :
+                                           {wstrb_r[3] ? wdata_r[31:24] : ret_data[31:24],
+                                            wstrb_r[2] ? wdata_r[23:16] : ret_data[23:16],
+                                            wstrb_r[1] ? wdata_r[15: 8] : ret_data[15: 8],
+                                            wstrb_r[0] ? wdata_r[ 7: 0] : ret_data[ 7: 0]};
+        end
+    endgenerate
+
     // way 0
     generate for (i = 0; i < 4; i = i + 1) begin
         data_bank_ram db_rami(
