@@ -166,13 +166,13 @@ module cache(
     end
     assign {op_r, wstrb_r, wdata_r, index_r, tag_r, offset_r} = req_buf;
     
-    assign vtag_addr[0] = cur_state[`IDLE] ? index : index_r;
-    assign vtag_addr[1] = cur_state[`IDLE] ? index : index_r;
+    assign vtag_addr[0] = cur_state[`IDLE] || cur_state[`LOOKUP] ? index : index_r;
+    assign vtag_addr[1] = cur_state[`IDLE] || cur_state[`LOOKUP] ? index : index_r;
 
     generate
         for (i = 0; i < 2; i = i + 1) begin
             for (j = 0; j < 4; j = j + 1) begin
-                assign data_bank_addr[i][j] = cur_state[`IDLE] ? index : index_r;
+                assign data_bank_addr[i][j] = cur_state[`IDLE] || cur_state[`LOOKUP] ? index : index_r;
             end
         end
     endgenerate
