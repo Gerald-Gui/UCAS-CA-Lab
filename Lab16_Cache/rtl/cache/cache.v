@@ -93,8 +93,6 @@ module cache(
     reg  [15:0] lfsr;
     wire        replace_way;
     reg  [ 1:0] ret_cnt;
-    reg  [31:0] load_buf [3:0];
-    wire [31:0] refill_data [3:0];
 
     // axi wr
     reg  wr_req_r;
@@ -213,27 +211,6 @@ module cache(
         end
     end
 
-    always @ (posedge clk_g) begin
-        if (rst) begin
-            load_buf[0] <= 32'b0;
-            load_buf[1] <= 32'b0;
-            load_buf[2] <= 32'b0;
-            load_buf[3] <= 32'b0;
-        end else if (ret_valid) begin
-            load_buf[ret_cnt] <= ret_data;
-        end
-    end
-
-    generate
-        for (i = 0; i < 4; i = i + 1) begin
-           assign refill_data[i] = offset_r[3:2] == i ?
-                                   {wstrb_r[3] ? wdata[31:24] : load_buf[i][31:24],
-                                    wstrb_r[2] ? wdata[23:16] : load_buf[i][23:16],
-                                    wstrb_r[1] ? wdata[15: 8] : load_buf[i][15: 8],
-                                    wstrb_r[0] ? wdata[ 7: 0] : load_buf[i][ 7: 0]} : load_buf[i]; 
-        end        
-    endgenerate
-
     // write buffer state machine
     always @ (posedge clk_g) begin
         if (rst) begin
@@ -329,8 +306,6 @@ module cache(
 
     // data bank ram
 
-    assign data_bank_we[0][0] = {4{wrbuf_cur_state[`WRBUF_WRITE] & wrbuf_offset[3:2] == 0 & ~wrbuf_way}} & wrbuf_wstrb
-                              | {4{ret_valid & ret_cnt == 0 & ~replace_way}} & 4'hf;
     generate
         for (i = 0; i < 4; i = i + 1) begin
             assign data_bank_we[0][i] = {4{wrbuf_cur_state[`WRBUF_WRITE] & wrbuf_offset[3:2] == i & ~wrbuf_way}} & wrbuf_wstrb
