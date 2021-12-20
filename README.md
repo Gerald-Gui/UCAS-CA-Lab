@@ -1,6 +1,6 @@
 # UCAS Computer Architecture Lab
 
-This repo stores codes and reports from UCAS Computer Architecture Lab 2021 Autumn
+This repo stores codes and reports from UCAS Computer Architecture Lab 2021 Autumn, built by [@Gerald-Gui](https://github.com/Gerald-Gui) and [@GaoSion](https://github.com/ETOgaosion)
 
 ## 实验内容
 
@@ -25,3 +25,7 @@ This repo stores codes and reports from UCAS Computer Architecture Lab 2021 Autu
    - [x] Lab15：添加 TLB 相关例外支持
  - [x] Lab16：高速缓存设计专题
    - [x] Lab16：Cache 模块设计
+
+## After all labs
+
+Gerald：今年第一次做 LoongArch，但实验难度上也不算太高，讲义能看出来在以前 MIPS 的经验上很照顾学生的水平（笑），跟着讲义走完成实验要求的功能应该不成问题，性能优化就是另一件事了。本仓库做了一部分优化如乘除法器等，但流水线结构仍来自教学团队，未自行修改流水线结构进行优化。
