@@ -292,6 +292,11 @@ module cache(
                        data_bank_rdata[replace_way][1],
                        data_bank_rdata[replace_way][0]};
 
+    assign vtag_we[0] = ret_valid & ret_last & ~replace_way;
+    assign vtag_we[1] = ret_valid & ret_last &  replace_way;
+    assign vtag_wdata[0] = {1'b1, tag_r};
+    assign vtag_wdata[1] = {1'b1, tag_r};
+
     // vtag ram: 20:20 v; 19:0 tag
     generate for (i = 0; i < 2; i = i + 1) begin
         v_tag_ram vtag_rami(
