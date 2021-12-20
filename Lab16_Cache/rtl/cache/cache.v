@@ -318,13 +318,13 @@ module cache(
             assign data_bank_we[1][i] = {4{wrbuf_cur_state[`WRBUF_WRITE] & wrbuf_offset[3:2] == i &  wrbuf_way}} & wrbuf_wstrb
                                       | {4{ret_valid & ret_cnt == i &  replace_way}} & 4'hf;
             assign data_bank_wdata[0][i] = wrbuf_cur_state[`WRBUF_WRITE] ? wrbuf_wdata :
-                                           offset_r[3:2] != i            ? ret_data    :
+                                           offset_r[3:2] != i || ~op_r   ? ret_data    :
                                            {wstrb_r[3] ? wdata_r[31:24] : ret_data[31:24],
                                             wstrb_r[2] ? wdata_r[23:16] : ret_data[23:16],
                                             wstrb_r[1] ? wdata_r[15: 8] : ret_data[15: 8],
                                             wstrb_r[0] ? wdata_r[ 7: 0] : ret_data[ 7: 0]};
             assign data_bank_wdata[1][i] = wrbuf_cur_state[`WRBUF_WRITE] ? wrbuf_wdata :
-                                           offset_r[3:2] != i            ? ret_data    :
+                                           offset_r[3:2] != i || ~op_r   ? ret_data    :
                                            {wstrb_r[3] ? wdata_r[31:24] : ret_data[31:24],
                                             wstrb_r[2] ? wdata_r[23:16] : ret_data[23:16],
                                             wstrb_r[1] ? wdata_r[15: 8] : ret_data[15: 8],

@@ -1,0 +1,228 @@
+\documentclass[UTF-8,twoside,c5size]{ctexart}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{geometry}
+\usepackage{listings}
+\usepackage{setspace}
+\usepackage{xeCJK}
+\usepackage{ulem}
+\usepackage{pstricks}
+\usepackage{pstricks-add}
+\usepackage{bm}
+\usepackage{mathtools}
+\usepackage{breqn}
+\usepackage{mathrsfs}
+\usepackage{esint}
+\usepackage{textcomp}
+\usepackage{upgreek}
+\usepackage{pifont}
+\usepackage{tikz}
+\usepackage{circuitikz}
+\usepackage{caption}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{pgfplots}
+\usepackage{multirow}
+\usepackage{pgfplotstable}
+\usepackage{mhchem}
+\usepackage{graphicx}
+\usepackage[cache=false]{minted}
+\usepackage{multicol}
+
+\newcolumntype{Y}{>{\centering\arraybackslash}X}
+\geometry{a4paper,centering,top=1.27cm,bottom=2.54cm,left=2cm,right=2cm}
+\graphicspath{{figures/}}
+\pagestyle{plain}
+\captionsetup{font=small}
+
+%\CTEXsetup[name={,.}]{section}
+\CTEXsetup[format={\raggedright\heiti\noindent\zihao{-3}},numberformat={\bfseries}]{section}
+\CTEXsetup[format={\raggedright\heiti\zihao{4}},numberformat={\bfseries}]{subsection}
+\CTEXsetup[format={\raggedright\heiti\quad\zihao{-4}},numberformat={\bfseries}]{subsubsection}
+\CTEXsetup[format={\raggedright\heiti\qquad},numberformat={\bfseries}]{paragraph}
+\CTEXsetup[beforeskip=1.0ex plus 0.2ex minus .2ex, afterskip=1.0ex plus 0.2ex minus .2ex]{paragraph}
+
+\CTEXsetup[format={\raggedright\heiti\qquad},numberformat={\bfseries},name={\bfseries(,)}]{subparagraph}
+\CTEXsetup[beforeskip=1.0ex plus 0.2ex minus .2ex, afterskip=1.0ex plus 0.2ex minus .2ex]{subparagraph}
+\renewcommand\thefootnote{\ding{\numexpr171+\value{footnote}}}
+
+\setstretch{1.5}
+
+\setCJKfamilyfont{boldsong}[AutoFakeBold = {2.17}]{SimSun}
+\newcommand*{\boldsong}{\CJKfamily{boldsong}}
+%\DeclareMathOperator\dif{d\!}
+\newcommand*{\me}{\mathop{}\!\mathrm{e}}
+\newcommand*{\mpar}{\mathop{}\!\partial}
+\newcommand*{\dif}{\mathop{}\!\mathrm{d}}
+\newcommand*{\tab}{\indent}
+\newcommand*{\mcelsius}{\mathop{}\!{^\circ}\mathrm{C}}
+\renewcommand*{\Im}{\mathrm{Im}\,}
+
+\setcounter{secnumdepth}{5}
+
+\renewcommand\arraystretch{1.5}
+\renewcommand\thesubparagraph{\arabic{subparagraph}}
+
+\lstset{
+	backgroundcolor=\color[RGB]{245,245,245},
+	keywordstyle=\color{blue}\bfseries,
+	basicstyle=\small\ttfamily,
+	commentstyle=\itshape\color{olive},
+	numberstyle=\ttfamily,
+	tabsize=4,
+	breaklines=true
+}
+
+\setminted{style=manni,fontsize=\small,breaklines=true}
+
+\begin{document}
+	\begin{center}
+		\heiti\zihao{-2}
+		实验\textbf{16}报告
+	\end{center}
+
+	\begin{table*}[!h]
+		\raggedleft
+		\zihao{-4}
+		\begin{tabular}{ccc}
+			{\heiti 学号} & {2019K8009929019} & {2019K8009929026} \\
+			{\heiti 姓名} & 桂庭辉 & 高梓源 \\
+			{\heiti 箱子号} & \multicolumn{2}{c}{44}
+		\end{tabular}
+	\end{table*}
+	
+	\section{实验任务}
+    自AXI总线专题后，我们可以注意到整体性能随着访存延迟的增大而显著下降。在实际设计中，CPU的运行速度增长速度远快于内存，在存储单元上存储密度与运行频率难以兼得，CPU与内存频率间的剪刀差导致了更大的访存开销。为了解决这样的问题，在CPU与内存间引入多级存储层次。在靠近处理器流水线处使用存储密度小而频率高的电路结构，在远离流水线处使用存储密度高的低速存储。在这一体系中主要的运算逻辑（CPU流水线中寄存器）与主要存储设备内存间的一层主要是Cache。现代处理器通常采用三级Cache结构，其中通常的组织形式为L1 Cache拆分为指令Cache与数据Cache，L2与L3均为单个大数据Cache。对多核处理器通常L1、L2 Cache由每个核心独有，L3 Cache在若干个核心间共有。
+    
+    由于上述讨论的Cache种类中只有L1的指令Cache对访存端口只读不写，其他Cache均需支持写功能，所以本次实验设计一种支持读写的通用Cache。忽略Cache集成相关的内容，仅关心Cache内部逻辑可归纳出如下规格要求：
+    
+    1. Cache容量为8\,KB，映射形式采用两路组相联，Cache行大小为16\,Byte。
+    
+    2. Cache采用Tag和Data同步访问的形式。
+    
+    3. 替换策略采用伪随机替换算法。
+    
+    4. 采用阻塞式设计，在发生Cache Miss时，阻塞后续访问直至数据填回Cache。
+
+    5. Cache不采用“关键字优先”技术。
+    
+    6. 数据Cache（即Cache的写策略）采用写回写分配策略。
+	
+	\section{实验设计}	
+	
+    Cache状态机的设计来自课程讲义，本报告不再赘述，仅将针对读写是否命中的不同情况讨论各状态的具体行为与部分重要逻辑实现。
+    
+    对于读命中，Cache自IDLE或LOOKUP状态转移到LOOKUP状态，并在后一拍返回读数据。
+    
+    对于读缺失，Cache根据替换策略选择某一路，检查其中对应行的脏位与有效位。若脏位拉高且行有效，则需要将该行数据同步到RAM，即自LOOKUP状态转移至MISS，将该行读出从总线写端口发出，写请求发出后转移至REPLACE状态。若脏位或有效位拉低，则该行数据与RAM中相应位置数据相同，无需进行写操作更新RAM内容，可直接转移到REPLACE态。在REPLACE态Cache向总线请求相应地址处的RAM数据，在握手完成后转移到REFILL态，接收总线返回的数据并写入Cache，当总线返回CPU请求处数据时将其返回给CPU。
+    
+    对于写命中，Cache在LOOKUP态判断出写命中\texttt{hit\_write}，将Write Buffer状态机置WRITE态，将相应数据写入Cache。
+    
+    对于写缺失，Cache的替换读出流程与读缺失相同，重填写入时需要将写数据写到总线返回数据上再写入Cache。
+    
+    命中时主状态机在IDLE与LOOKUP间的逻辑，Write Buffer状态机在IDLE与WRITE间的状态转移逻辑已由课程讲义给出详细的介绍，此处不再讨论。
+    
+    Cache中重要的控制与数据信号包括对CPU的\texttt{addr/data\_ok}与返回数据，对总线的读写请求与相关信号，主要的存储单元维护包括D表、V-Tag表、各数据bank。
+    
+    \texttt{addr/data\_ok}、\texttt{wr/rd\_req}逻辑同样参考讲义实现，对CPU返回数据上需区分命中返回Cache命中数据与缺失返回总线返回数据，此处的选择信号可以是状态机状态，也可以是读事务中的独有信号，如\texttt{ret\_valid}：
+    \begin{minted}{verilog}
+    assign rdata = ret_valid ? ret_data : load_res;
+    \end{minted}
+    
+    对总线的读地址始终为CPU请求的地址，写地址中Tag字段应来自替换路相应Cache行中记录的Tag信息，写数据为替换路读出的Cache行（V-Tag表与data bank的访问地址后续讨论，保证此处读出内容为\texttt{index\_r}处内容）。
+    \begin{minted}{verilog}
+    assign rd_addr = {tag_r, index_r, offset_r};
+    
+    assign wr_addr  = {vtag_rdata[replace_way][19:0], index_r, offset_r};
+    assign wr_data  = {data_bank_rdata[replace_way][3],
+                       data_bank_rdata[replace_way][2],
+                       data_bank_rdata[replace_way][1],
+                       data_bank_rdata[replace_way][0]};
+    \end{minted}
+    
+    D表的维护在于Cache行中数据与相应内存区间的数据不再相同后置1，重填Cache行时需注意此时填入Cache行数据是否与内存相同，对于写缺失，CPU发来的写数据已经修改内存发来的数据，应置1；对于读缺失，内存读出的数据未被修改，但此前此处脏位可能为1，需置零保证D表的正确维护。所以D表的维护发生在两处，一处在于Write Buffer写数据bank，修改Cache行需强制置1，另一处在于重填Cache行，需根据请求类型进行更新。
+    \begin{minted}{verilog}
+    always @ (posedge clk_g) begin
+        if (rst) begin
+            dirty_arr[0] <= 256'b0;
+            dirty_arr[1] <= 256'b0;
+        end else if (wrbuf_cur_state[`WRBUF_WRITE]) begin
+            dirty_arr[wrbuf_way][wrbuf_index] <= 1'b1;
+        end else if (ret_valid & ret_last) begin
+            dirty_arr[replace_way][index_r] <= op_r;
+        end
+    end
+    \end{minted}
+
+    V-Tag表的写更新操作来自重填Cache行时，填入的V位始终为1，Tag字段来自请求缓存，写地址同样来自请求缓存。V-Tag表的读地址有在接收CPU请求时读请求端口的\texttt{index}处数据，另有生成\texttt{wr\_addr}时读\texttt{index\_r}处数据。所以可以看出V-Tag表的访问地址在IDLE与LOOKUP态（下一拍可能对读数据进行Tag比对）为端口输入，其他情况均来自\texttt{index\_r}。访问数据bank的地址有相同的逻辑，下文不再次讨论。
+    \begin{minted}{verilog}
+    assign vtag_we[0] = ret_valid & ret_last & ~replace_way;
+    assign vtag_we[1] = ret_valid & ret_last &  replace_way;
+    assign vtag_wdata[0] = {1'b1, tag_r};
+    assign vtag_wdata[1] = {1'b1, tag_r};
+    assign vtag_addr[0] = cur_state[`IDLE] || cur_state[`LOOKUP] ? index : index_r;
+    assign vtag_addr[1] = cur_state[`IDLE] || cur_state[`LOOKUP] ? index : index_r;
+    \end{minted}
+    
+    数据bank的写更新操作类似D表，来自写命中时的写操作与缺失时重填。生成数据bank所用同步RAM时勾选字节写使能后可简化写命中时的字节写逻辑，写缺失重填时由于\texttt{wstrb\_r}作用于\texttt{ret\_data}而非数据bank内容，故而需在\texttt{wdata}生成逻辑中完成该步。
+    \begin{minted}{verilog}
+    generate
+        for (i = 0; i < 4; i = i + 1) begin
+            assign data_bank_we[0][i] = {4{wrbuf_cur_state[`WRBUF_WRITE] & wrbuf_offset[3:2] == i & ~wrbuf_way}} & wrbuf_wstrb
+                                      | {4{ret_valid & ret_cnt == i & ~replace_way}} & 4'hf;
+            assign data_bank_we[1][i] = {4{wrbuf_cur_state[`WRBUF_WRITE] & wrbuf_offset[3:2] == i &  wrbuf_way}} & wrbuf_wstrb
+                                      | {4{ret_valid & ret_cnt == i &  replace_way}} & 4'hf;
+            assign data_bank_wdata[0][i] = wrbuf_cur_state[`WRBUF_WRITE] ? wrbuf_wdata :
+                                           offset_r[3:2] != i || ~op_r   ? ret_data    :
+                                           {wstrb_r[3] ? wdata_r[31:24] : ret_data[31:24],
+                                            wstrb_r[2] ? wdata_r[23:16] : ret_data[23:16],
+                                            wstrb_r[1] ? wdata_r[15: 8] : ret_data[15: 8],
+                                            wstrb_r[0] ? wdata_r[ 7: 0] : ret_data[ 7: 0]};
+            assign data_bank_wdata[1][i] = wrbuf_cur_state[`WRBUF_WRITE] ? wrbuf_wdata :
+                                           offset_r[3:2] != i || ~op_r   ? ret_data    :
+                                           {wstrb_r[3] ? wdata_r[31:24] : ret_data[31:24],
+                                            wstrb_r[2] ? wdata_r[23:16] : ret_data[23:16],
+                                            wstrb_r[1] ? wdata_r[15: 8] : ret_data[15: 8],
+                                            wstrb_r[0] ? wdata_r[ 7: 0] : ret_data[ 7: 0]};
+        end
+    endgenerate
+    \end{minted}
+
+	\section{实验过程}
+	
+	\subsection{实验流水账}
+	2021.12.19 18:30 $\sim$ 2021.12.19 22.20 ：完成Cache代码设计并通过测试。
+    
+    2021.12.20 18:00 $\sim$ 2021.12.20 20:00 ：完成本实验报告撰写。
+	
+    
+	\subsection{错误记录}
+    本次实验报告不再讨论笔误与简单逻辑错误。
+    
+	\subsubsection{错误\textbf{1：}\texttt{data\_ok}逻辑错误}
+    \paragraph{错误现象}\hfill
+    
+    读测试中\texttt{cache\_top}中用于输入的\texttt{counter\_i/j}与用于比对的\texttt{res\_counter\_i/j}不匹配，导致比对判定读错误。
+    
+    \paragraph{分析定位过程}\hfill
+    
+    注意到上述索引错误后比对对应索引处的标准数据，验证读数据与标准数据一致，故而数据维护上并无问题，可能的问题来自控制信号。考察\texttt{cache\_top.v}中\texttt{counter\_i/j}由\texttt{addr\_ok}触发自增，而\texttt{res\_counter\_i/j}由\texttt{data\_ok}触发，回溯波形注意到存在一个\texttt{addr\_ok}后Cache返回两次\texttt{data\_ok}。
+    
+    \paragraph{错误原因}\hfill
+    
+    课程讲义中给出的\texttt{data\_ok}逻辑中包括一项“LOOKUP状态处理写操作”，未意识到该步包括了写命中与写缺失，而第三条描述的REFILL态相应条件拉高\texttt{data\_ok}是读缺失独有，代码设计时未在该处限定读缺失拉高，导致写缺失处理过程中拉高两次\texttt{data\_ok}。
+    
+    \paragraph{修正效果}\hfill
+    
+    在REFILL态的\texttt{data\_ok}分支逻辑上与上\texttt{$\mathtt{\sim}$op\_r}，避免写缺失重复发\texttt{data\_ok}。
+    \begin{minted}{verilog}
+    assign data_ok = cur_state[`LOOKUP] & cache_hit
+                   | cur_state[`LOOKUP] & op_r
+                   | cur_state[`REFILL] & ret_valid & ret_cnt == offset_r[3:2] & ~op_r;
+    \end{minted}
+	
+	\section{实验总结}
+	由于组成原理课程中设计过Cache，所以Cache的逻辑策略、组织形式对我们并未带来较大困难，主要的实验阻力来自状态机理解与总线接口交互。课程讲义给我们提供了许多帮助，但也不能不带脑子做实验写代码。
+	
+\end{document}
