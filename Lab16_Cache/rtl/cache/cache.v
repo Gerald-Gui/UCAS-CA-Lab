@@ -66,15 +66,18 @@ module cache(
 
     // cache tables
     // RAM ports
-    wire        vtag_we    [1:0];
-    wire [ 7:0] vtag_addr  [1:0];
-    wire [20:0] vtag_wdata [1:0];   // 20:20 v; 19:0 tag
-    wire [20:0] vtag_rdata [1:0];
+    wire        tag_we    [1:0];
+    wire [ 7:0] tag_addr  [1:0];
+    wire [19:0] tag_wdata [1:0];   // 19:0 tag
+    wire [19:0] tag_rdata [1:0];
 
     wire [ 3:0] data_bank_we    [1:0][3:0];
     wire [ 7:0] data_bank_addr  [1:0][3:0];
     wire [31:0] data_bank_wdata [1:0][3:0];
     wire [31:0] data_bank_rdata [1:0][3:0];
+
+    // valid array
+    reg  [255:0] valid_arr [1:0];
 
     // dirty array
     reg  [255:0] dirty_arr [1:0];
@@ -128,7 +131,7 @@ module cache(
                     nxt_state = IDLE;
                 end else if (cache_hit & valid) begin
                     nxt_state = LOOKUP;
-                end else if (~dirty_arr[replace_way][index_r] | ~vtag_rdata[replace_way][20]) begin
+                end else if (~dirty_arr[replace_way][index_r] | ~valid_arr[replace_way][index_r]) begin
                     nxt_state = REPLACE;
                 end else begin
                     nxt_state = MISS;
@@ -166,8 +169,8 @@ module cache(
     end
     assign {op_r, wstrb_r, wdata_r, index_r, tag_r, offset_r} = req_buf;
     
-    assign vtag_addr[0] = cur_state[`IDLE] || cur_state[`LOOKUP] ? index : index_r;
-    assign vtag_addr[1] = cur_state[`IDLE] || cur_state[`LOOKUP] ? index : index_r;
+    assign tag_addr[0] = cur_state[`IDLE] || cur_state[`LOOKUP] ? index : index_r;
+    assign tag_addr[1] = cur_state[`IDLE] || cur_state[`LOOKUP] ? index : index_r;
 
     generate
         for (i = 0; i < 2; i = i + 1) begin
@@ -179,8 +182,8 @@ module cache(
 
     
     // LOOKUP
-    assign way_hit[0] = vtag_rdata[0][20] && (vtag_rdata[0][19:0] == tag_r);
-    assign way_hit[1] = vtag_rdata[1][20] && (vtag_rdata[1][19:0] == tag_r);
+    assign way_hit[0] = valid_arr[0][index_r] && (tag_rdata[0][19:0] == tag_r);
+    assign way_hit[1] = valid_arr[1][index_r] && (tag_rdata[1][19:0] == tag_r);
     assign cache_hit = |way_hit;
 
     assign hit_write = cache_hit & op_r & cur_state[`LOOKUP];
@@ -285,26 +288,36 @@ module cache(
         end
     end
     assign wr_type  = 3'b100;
-    assign wr_addr  = {vtag_rdata[replace_way][19:0], index_r, offset_r};
+    assign wr_addr  = {tag_rdata[replace_way][19:0], index_r, offset_r};
     assign wr_wstrb = 4'hf;
     assign wr_data  = {data_bank_rdata[replace_way][3],
                        data_bank_rdata[replace_way][2],
                        data_bank_rdata[replace_way][1],
                        data_bank_rdata[replace_way][0]};
 
-    assign vtag_we[0] = ret_valid & ret_last & ~replace_way;
-    assign vtag_we[1] = ret_valid & ret_last &  replace_way;
-    assign vtag_wdata[0] = {1'b1, tag_r};
-    assign vtag_wdata[1] = {1'b1, tag_r};
+    // valid array
+    always @ (posedge clk_g) begin
+        if (rst) begin
+            valid_arr[0] <= 256'b0;
+            valid_arr[1] <= 256'b0;
+        end else if (ret_valid & ret_last) begin
+            valid_arr[replace_way][index_r] <= 1'b1;
+        end
+    end
 
-    // vtag ram: 20:20 v; 19:0 tag
+    assign tag_we[0] = ret_valid & ret_last & ~replace_way;
+    assign tag_we[1] = ret_valid & ret_last &  replace_way;
+    assign tag_wdata[0] = tag_r;
+    assign tag_wdata[1] = tag_r;
+
+    // tag ram
     generate for (i = 0; i < 2; i = i + 1) begin
-        v_tag_ram vtag_rami(
+        tag_ram tag_rami(
             .clka (clk_g),
-            .wea  (vtag_we[i]),
-            .addra(vtag_addr[i]),
-            .dina (vtag_wdata[i]),
-            .douta(vtag_rdata[i])
+            .wea  (tag_we[i]),
+            .addra(tag_addr[i]),
+            .dina (tag_wdata[i]),
+            .douta(tag_rdata[i])
         );
     end
     endgenerate

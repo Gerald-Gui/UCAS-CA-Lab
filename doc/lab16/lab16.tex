@@ -115,7 +115,7 @@
     
     对于读命中，Cache自IDLE或LOOKUP状态转移到LOOKUP状态，并在后一拍返回读数据。
     
-    对于读缺失，Cache根据替换策略选择某一路，检查其中对应行的脏位与有效位。若脏位拉高且行有效，则需要将该行数据同步到RAM，即自LOOKUP状态转移至MISS，将该行读出从总线写端口发出，写请求发出后转移至REPLACE状态。若脏位或有效位拉低，则该行数据与RAM中相应位置数据相同，无需进行写操作更新RAM内容，可直接转移到REPLACE态。在REPLACE态Cache向总线请求相应地址处的RAM数据，在握手完成后转移到REFILL态，接收总线返回的数据并写入Cache，当总线返回CPU请求处数据时将其返回给CPU。
+    对于读缺失，Cache根据替换策略选择某一路，检查其中对应行的脏位与有效位\footnote{课程讲义给出的状态机中不涉及该处判断，此处也是我们的状态机唯一的不同设计。}。若脏位拉高且行有效，则需要将该行数据同步到RAM，即自LOOKUP状态转移至MISS，将该行读出从总线写端口发出，写请求发出后转移至REPLACE状态。若脏位或有效位拉低，则该行数据与RAM中相应位置数据相同，无需进行写操作更新RAM内容，可直接转移到REPLACE态。在REPLACE态Cache向总线请求相应地址处的RAM数据，在握手完成后转移到REFILL态，接收总线返回的数据并写入Cache，当总线返回CPU请求处数据时将其返回给CPU。
     
     对于写命中，Cache在LOOKUP态判断出写命中\texttt{hit\_write}，将Write Buffer状态机置WRITE态，将相应数据写入Cache。
     
@@ -134,7 +134,7 @@
     \begin{minted}{verilog}
     assign rd_addr = {tag_r, index_r, offset_r};
     
-    assign wr_addr  = {vtag_rdata[replace_way][19:0], index_r, offset_r};
+    assign wr_addr  = {tag_rdata[replace_way][19:0], index_r, offset_r};
     assign wr_data  = {data_bank_rdata[replace_way][3],
                        data_bank_rdata[replace_way][2],
                        data_bank_rdata[replace_way][1],
@@ -156,13 +156,24 @@
     \end{minted}
 
     V-Tag表的写更新操作来自重填Cache行时，填入的V位始终为1，Tag字段来自请求缓存，写地址同样来自请求缓存。V-Tag表的读地址有在接收CPU请求时读请求端口的\texttt{index}处数据，另有生成\texttt{wr\_addr}时读\texttt{index\_r}处数据。所以可以看出V-Tag表的访问地址在IDLE与LOOKUP态（下一拍可能对读数据进行Tag比对）为端口输入，其他情况均来自\texttt{index\_r}。访问数据bank的地址有相同的逻辑，下文不再次讨论。
+    
+    为实现对Cache简单的复位清零操作，我们还是将V表独立维护，以通过类似RegFile的形式进行复位清零，由于此前讨论中提及过我们的状态机状态机跳过了不需要发写请求的情况，其中包括V位拉低，所以未初始化的Tag字段与Cache行内容不会被发到总线上。
     \begin{minted}{verilog}
-    assign vtag_we[0] = ret_valid & ret_last & ~replace_way;
-    assign vtag_we[1] = ret_valid & ret_last &  replace_way;
-    assign vtag_wdata[0] = {1'b1, tag_r};
-    assign vtag_wdata[1] = {1'b1, tag_r};
-    assign vtag_addr[0] = cur_state[`IDLE] || cur_state[`LOOKUP] ? index : index_r;
-    assign vtag_addr[1] = cur_state[`IDLE] || cur_state[`LOOKUP] ? index : index_r;
+    assign tag_we[0] = ret_valid & ret_last & ~replace_way;
+    assign tag_we[1] = ret_valid & ret_last &  replace_way;
+    assign tag_wdata[0] = tag_r;
+    assign tag_wdata[1] = tag_r;
+    assign tag_addr[0] = cur_state[`IDLE] || cur_state[`LOOKUP] ? index : index_r;
+    assign tag_addr[1] = cur_state[`IDLE] || cur_state[`LOOKUP] ? index : index_r;
+    
+    always @ (posedge clk_g) begin
+        if (rst) begin
+            valid_arr[0] <= 256'b0;
+            valid_arr[1] <= 256'b0;
+        end else if (ret_valid & ret_last) begin
+            valid_arr[replace_way][index_r] <= 1'b1;
+        end
+    end
     \end{minted}
     
     数据bank的写更新操作类似D表，来自写命中时的写操作与缺失时重填。生成数据bank所用同步RAM时勾选字节写使能后可简化写命中时的字节写逻辑，写缺失重填时由于\texttt{wstrb\_r}作用于\texttt{ret\_data}而非数据bank内容，故而需在\texttt{wdata}生成逻辑中完成该步。
